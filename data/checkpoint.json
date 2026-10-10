@@ -1,0 +1,29 @@
+{
+  "created_at": "2026-10-09T12:02:27.499982+00:00",
+  "counts": {
+    "users": 66104,
+    "resumes": 66104,
+    "vacancies": 25782,
+    "work_items": 84550,
+    "embedding_chunks": 85711,
+    "embeddings": 5600,
+    "item_vectors": 5519
+  },
+  "chunk_status": {
+    "pending": 80031,
+    "ready": 5680
+  },
+  "full_vectorization_complete": false,
+  "model": "jinaai/jina-embeddings-v3",
+  "revision": "ab036b023d30b4d1138c4c3bfa9f0c445ab455d6",
+  "task": "retrieval.passage",
+  "dimensions": 1024,
+  "remaining_unique_texts": 78591,
+  "quick_check": "ok",
+  "foreign_key_errors": 0,
+  "tests": {
+    "parser": 33,
+    "ui": 3,
+    "backend": 9
+  }
+}

@@ -1,0 +1,24 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Исходные архивы, датасеты и веса моделей не входят в фронтенд-репозиторий.
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.pdf
+*.csv
+*.parquet
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+.venv/
+__pycache__/
+data/*.sqlite3*
+.env
+
+backups/
