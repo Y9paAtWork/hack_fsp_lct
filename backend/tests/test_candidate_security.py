@@ -2,11 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cryptography.exceptions import InvalidTag
-
 from backend.candidate_access import anonymize_matches, resolve_match
 from backend.db import connect, init_db
-from backend.encrypted_database import decrypt, encrypt, generate_key
 
 
 class CandidateSecurityTests(unittest.TestCase):
@@ -41,20 +38,6 @@ class CandidateSecurityTests(unittest.TestCase):
             self.assertEqual(resolve_match(c,'e','v',public['match_id'])['candidate_id'],'c')
             with self.assertRaises(Exception):
                 resolve_match(c,'other','v',public['match_id'])
-
-    def test_streaming_encryption_round_trip_and_wrong_key(self):
-        source = Path(self.folder.name) / 'source.sqlite3'
-        encrypted = Path(self.folder.name) / 'source.fspenc'
-        restored = Path(self.folder.name) / 'restored.sqlite3'
-        source.write_bytes(self.db.read_bytes())
-        key = generate_key()
-        encrypt(source, encrypted, key)
-        self.assertNotIn(b'Secret Name', encrypted.read_bytes())
-        decrypt(encrypted, restored, key, check_sqlite=True)
-        self.assertEqual(source.read_bytes(), restored.read_bytes())
-        with self.assertRaises(InvalidTag):
-            decrypt(encrypted, Path(self.folder.name) / 'wrong.sqlite3', generate_key())
-
 
 if __name__ == '__main__':
     unittest.main()

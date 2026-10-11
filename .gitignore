@@ -37,7 +37,7 @@ __pycache__/
 *.pkl
 *.joblib
 data/*
-!data/checkpoint.json
+!data/demo_seed.sqlite3
 
 backups/
 out/
