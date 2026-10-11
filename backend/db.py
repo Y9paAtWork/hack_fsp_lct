@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -33,3 +34,27 @@ def init_db(path=None):
     with connect(path) as c:
         c.execute('PRAGMA journal_mode=WAL')
         c.executescript((ROOT / 'backend/schema.sql').read_text())
+        columns={row['name'] for row in c.execute('PRAGMA table_info(vacancies)')}
+        if 'visibility' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK(visibility IN ('public','private'))")
+        if 'status' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed'))")
+        if 'closed_at' not in columns:
+            c.execute('ALTER TABLE vacancies ADD COLUMN closed_at TEXT')
+        c.execute('CREATE INDEX IF NOT EXISTS ix_vacancy_discovery ON vacancies(visibility,status,specialization)')
+        c.execute('''INSERT OR IGNORE INTO candidate_initial_grades(user_id,grade,declared_at)
+          SELECT u.id,coalesce(cg.grade,'Junior'),u.created_at FROM users u
+          LEFT JOIN candidate_grades cg ON cg.user_id=u.id
+          WHERE u.role='candidate' AND u.origin='registration' ''')
+        c.execute('''INSERT OR IGNORE INTO candidate_test_grades(user_id,current_grade,updated_at)
+          SELECT user_id,grade,declared_at FROM candidate_initial_grades''')
+        if not c.execute('SELECT 1 FROM schema_version WHERE version=3').fetchone():
+            rows=c.execute('''SELECT cp.user_id,cp.profile_json,ig.grade,tg.current_grade,ig.declared_at
+              FROM candidate_profiles cp JOIN candidate_initial_grades ig ON ig.user_id=cp.user_id
+              LEFT JOIN candidate_test_grades tg ON tg.user_id=cp.user_id''').fetchall()
+            for row in rows:
+                for specialization in json.loads(row['profile_json']).get('selected',[]):
+                    c.execute('''INSERT OR IGNORE INTO candidate_specialization_grades
+                      (user_id,specialization,declared_grade,current_grade,declared_at,updated_at)
+                      VALUES(?,?,?,?,?,?)''',(row['user_id'],specialization,row['grade'],row['current_grade'] or row['grade'],row['declared_at'],now()))
+            c.execute('INSERT INTO schema_version VALUES(3,?)',(now(),))

@@ -14,9 +14,6 @@ export function sanitizeProfile(value){
   p.stacks=Object.fromEntries(Object.entries(value.stacks&&typeof value.stacks==='object'?value.stacks:{}).map(([k,v])=>[k,strings(v)]));
   p.jobs=records(value.jobs,['company','role','start','end','description','source']);
   p.ownProjects=records(value.ownProjects,['name','description','tasks']);
-  if(value.quiz&&Number.isFinite(value.quiz.score)&&value.quiz.score>=0&&value.quiz.score<=100&&Number.isInteger(value.quiz.total)&&value.quiz.total>0&&Number.isInteger(value.quiz.correct)&&value.quiz.correct>=0&&value.quiz.correct<=value.quiz.total){
-    p.quiz={score:value.quiz.score,total:value.quiz.total,correct:value.quiz.correct,date:typeof value.quiz.date==='string'?value.quiz.date:''};
-  }
   return p;
 }
 export function loadProfile(storage){try{return sanitizeProfile(JSON.parse(storage.getItem(KEY)||'null'))}catch{return emptyProfile()}}

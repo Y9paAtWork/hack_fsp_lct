@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyProfile,saveProfile,loadProfile,deleteProfile,profileSkills} from '../src/profileStore.js';
 const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}};
-test('Profile round-trip preserves registration and quiz, excludes password',()=>{
+test('Profile round-trip preserves registration, excludes password and server-owned quiz',()=>{
  const s=storage(),p={...emptyProfile(),name:'Ника',email:'nika@example.org',selected:['Backend'],active:'Backend',step:4,stacks:{Backend:['Python']},jobs:{Backend:[{company:'A',start:'2025',end:'2026',description:'API'}]},ownProjects:{Backend:[{name:'Сайт',description:'HR',tasks:'Парсер'}]},quiz:{correct:1,total:2,score:50,date:'2026'},password:'secret'};
- const saved=saveProfile(s,p);assert.deepEqual(loadProfile(s),saved);assert.equal('password' in saved,false);assert.equal(saved.jobs.Backend[0].company,'A');assert.equal(saved.ownProjects.Backend[0].name,'Сайт');assert.equal(saved.quiz.score,50);
+ const saved=saveProfile(s,p);assert.deepEqual(loadProfile(s),saved);assert.equal('password' in saved,false);assert.equal(saved.jobs.Backend[0].company,'A');assert.equal(saved.ownProjects.Backend[0].name,'Сайт');assert.equal(saved.quiz,null);
 });
 test('Corrupt storage recovers and malformed values are sanitized',()=>{
  const s=storage();s.setItem('fsp.candidate.v1','broken');assert.deepEqual(loadProfile(s),emptyProfile());

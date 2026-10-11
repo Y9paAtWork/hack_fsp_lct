@@ -11,11 +11,25 @@ test('PDF whitespace, soft hyphens and line-break hyphenation',()=>{
  const text=cleanResumeText('  Post-\n greSQL\u00a0\u200b Py\u00adthon  ');assert.equal(text,'PostgreSQL Python');assert.deepEqual(extractSkills(text).skills,['PostgreSQL','Python']);
 });
 test('Empty PDF page yields empty text',()=>assert.equal(pageText([{type:'beginMarkedContent'}]),''));
+function fixturePdf(){
+ const content='BT /F1 12 Tf 72 720 Td (Python PostgreSQL Docker React Native) Tj ET';
+ const objects=[
+  '<< /Type /Catalog /Pages 2 0 R >>',
+  '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+ ];
+ let pdf='%PDF-1.4\n';const offsets=[0];
+ objects.forEach((object,i)=>{offsets.push(Buffer.byteLength(pdf));pdf+=`${i+1} 0 obj\n${object}\nendobj\n`});
+ const xref=Buffer.byteLength(pdf);pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+ offsets.slice(1).forEach(offset=>{pdf+=`${String(offset).padStart(10,'0')} 00000 n \n`});
+ pdf+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+ return new Uint8Array(Buffer.from(pdf));
+}
 test('Actual PDF text extraction feeds skill parser',async()=>{
- const {readFile}=await import('node:fs/promises');
  const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');
- const data=new Uint8Array(await readFile(new URL('./fixtures/resume.pdf',import.meta.url)));
- const task=getDocument({data,isEvalSupported:false});
+ const task=getDocument({data:fixturePdf(),isEvalSupported:false});
  try{const doc=await task.promise;const page=await doc.getPage(1);const content=await page.getTextContent();assert.deepEqual(extractSkills(pageText(content.items)).skills,['Python','PostgreSQL','Docker','React Native']);}
  finally{await task.destroy();}
 });

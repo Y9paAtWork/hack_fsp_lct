@@ -2,6 +2,10 @@
 
 SQLite 3, foreign_keys=ON, WAL. Данные приложения находятся в data/fsp.sqlite3. SQL-источник: backend/schema.sql. Все JSON-колонки имеют тип TEXT с сериализованным JSON; даты — TEXT, ISO UTC для служебных отметок, исходный формат для дат опыта. Отсутствующие числовые значения — NULL.
 
+Дополнение для четырёхсигнального подбора: `skill_test_results` хранит балл 0–100 и источник по каждой технологии кандидата; `candidate_skill_vectors` — массив `float32` из 202 значений и SHA-256 порядка каталога; `candidate_activity` — сводку за 30 дней, а `candidate_activity_days` и `candidate_daily_tests` — реальные события; `candidate_fsp_achievements` — уровень, этап, место и источник каждого достижения; `vacancy_query_vectors` — Jina-вектор обязанностей вакансии. Формулы и порядок запуска описаны в [RANKING.md](RANKING.md). Демо-значения помечены `synthetic_demo`.
+
+`candidate_grade_estimates` хранит промежуточный эвристический результат: `Junior`, `Middle`, `Senior` или `Unknown`, уверенность и использованные признаки. `candidate_grades` хранит **итоговый грейд каждого кандидата**: только `Junior`, `Middle` или `Senior`, с источником `heuristic` либо `review_file`. `Intern` объединён с `Junior`, `Lead` — с `Senior`. Для пересчёта: `python3 -m backend.estimate_grades`, затем `python3 -m backend.apply_reviewed_grades`. Выгрузка и статистика находятся в `out/grade_estimation/candidate_grades.csv` и `final_grade_statistics.md`; промежуточный файл — `heuristic_candidate_grades.csv`. Грейд пока не участвует в ранжировании.
+
 Вакансии из CSV не содержат ID работодателя/названия компании: employer_id остаётся NULL. У резюме нет почты и пароля: users.origin=dataset, email/password_hash=NULL. Регистрация создаёт новый UUID-аккаунт origin=registration и не присваивает ему случайную строку из датасета.
 
 ## schema_version
@@ -473,3 +477,15 @@ WHERE user_id = ?;
 Нормализованное среднее частей является представлением всей работы/проекта. Исходные векторы частей сохраняются отдельно. Из-за общей очереди обработка не блокирует регистрацию. Векторизация всего датасета не завершена: точное состояние экспортированного снимка — в data/checkpoint.json.
 
 parent_item_id предусмотрен как nullable FK. Импорт не угадывает родительскую связь проекта с компанией; он сохраняет источник в source_field/source_text.
+
+## Серверные результаты тестирования
+
+`test_questions` содержит 1 730 технологических заданий и ключи ответов. `daily_questions` содержит 106 общих заданий и ключи; эти таблицы доступны только backend. `assessment_attempts` фиксирует технологию, уровень, список вопросов, время и итог каждой попытки. `assessment_answers` хранит ответы и оценки отдельных вопросов с версией оценщика. `technology_level_results` хранит лучший результат по паре технология/уровень; `skill_test_results` и `candidate_skill_vectors` получают результат последней завершённой попытки. Редактируемый `candidate_profiles.profile_json` не является источником этих результатов.
+
+`candidate_verified_grades` хранит подтверждённый грейд отдельно по специализации, вместе с версией матрицы и банка вопросов. Эвристические `candidate_grade_estimates` и `candidate_grades` не считаются подтверждением. `daily_sessions` фиксирует набор из трёх вопросов, ответы и оценку на московскую дату. `candidate_activity_days_msk` хранит даты посещений, а `candidate_activity` — 30-дневный итог посещений и ежедневных тестов. Подробная схема и ограничения находятся в `backend/schema.sql`.
+
+## Отклики, приглашения и статусы вакансий
+
+`vacancies.visibility` (`public`/`private`) и `vacancies.status` (`open`/`closed`) управляют публикацией и архивом. Миграция присваивает всем существующим вакансиям `public` и `open`; `closed_at` сохраняет дату закрытия. `candidate_initial_grades` хранит грейд, указанный при регистрации, а `candidate_test_grades` — текущий уровень доступных тестов. `hiring_interactions` хранит отклики и приглашения со статусами `pending`, `approved`, `rejected`, а `hiring_messages` — сообщения участников. Сообщения доступны только после одобрения. Резервная копия БД перед миграцией создаётся вне Git.
+
+`candidate_specialization_grades` хранит заявленный и текущий грейд отдельно для каждой специализации кандидата. Версия миграции 3 переносит значения существующих аккаунтов из общих таблиц `candidate_initial_grades` и `candidate_test_grades`; они остаются только для совместимости со старыми записями. Заявленный грейд можно уточнить до подтверждения или повышения, а повышение текущего уровня происходит по каждой специализации отдельно.

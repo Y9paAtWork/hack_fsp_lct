@@ -1,0 +1,1691 @@
+{
+  "catalog_version": "technology_stack_FINAL(4)_202_v1",
+  "matrix_version": "grade-rules-1.0",
+  "technology_count": 202,
+  "specializations": {
+    "Backend": {
+      "foundation": "API, безопасность, транзакции, SQL, диагностика ошибок",
+      "advanced": "Архитектура сервисов, конкуренция, отказоустойчивость, профилирование",
+      "groups": [
+        {
+          "name": "Язык серверной разработки",
+          "alternatives": [
+            "Python",
+            "Java",
+            "Go",
+            "C#",
+            "PHP",
+            "JavaScript",
+            "TypeScript",
+            "Ruby",
+            "Kotlin",
+            "Rust",
+            "Scala"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Серверный фреймворк",
+          "alternatives": [
+            "Django",
+            "FastAPI",
+            "Flask",
+            "Spring Boot",
+            "Spring",
+            "ASP.NET Core",
+            "NestJS",
+            "Express.js",
+            "Laravel",
+            "Symfony"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Реляционная БД",
+          "alternatives": [
+            "PostgreSQL",
+            "MySQL",
+            "MS SQL Server",
+            "Oracle",
+            "MariaDB",
+            "SQLite"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контроль версий",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Проектирование API",
+          "alternatives": [
+            "REST API",
+            "GraphQL",
+            "gRPC"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "ORM и миграции",
+          "alternatives": [
+            "SQLAlchemy",
+            "Hibernate",
+            "Entity Framework"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Очереди / кеш",
+          "alternatives": [
+            "Redis",
+            "RabbitMQ",
+            "Kafka"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контейнеризация",
+          "alternatives": [
+            "Docker"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "CI/CD",
+          "alternatives": [
+            "GitHub Actions",
+            "GitLab CI/CD",
+            "Jenkins"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Наблюдаемость",
+          "alternatives": [
+            "Prometheus",
+            "OpenTelemetry",
+            "Grafana",
+            "ELK Stack"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Frontend": {
+      "foundation": "DOM, адаптивность, accessibility, состояние компонентов",
+      "advanced": "Производительность рендеринга, SSR, дизайн-системы, безопасность клиента",
+      "groups": [
+        {
+          "name": "Разметка и стили",
+          "alternatives": [
+            "HTML",
+            "CSS"
+          ],
+          "minimum_technologies": 2
+        },
+        {
+          "name": "Язык",
+          "alternatives": [
+            "JavaScript",
+            "TypeScript"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "UI-фреймворк",
+          "alternatives": [
+            "React",
+            "Vue.js",
+            "Angular",
+            "Svelte"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Версионирование",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Сборка",
+          "alternatives": [
+            "Vite",
+            "Webpack"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Управление состоянием",
+          "alternatives": [
+            "Redux"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Фреймворк рендеринга",
+          "alternatives": [
+            "Next.js",
+            "Nuxt.js"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Тесты UI",
+          "alternatives": [
+            "Jest",
+            "Cypress",
+            "Playwright"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Типизация",
+          "alternatives": [
+            "TypeScript"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "API-интеграции",
+          "alternatives": [
+            "REST API",
+            "GraphQL"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Fullstack": {
+      "foundation": "Полный цикл UI–API–БД, авторизация, тестирование",
+      "advanced": "Архитектура приложения, границы сервисов, масштабирование и наблюдаемость",
+      "groups": [
+        {
+          "name": "Язык браузера",
+          "alternatives": [
+            "JavaScript",
+            "TypeScript"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "UI-фреймворк",
+          "alternatives": [
+            "React",
+            "Vue.js",
+            "Angular",
+            "Svelte"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Backend среда",
+          "alternatives": [
+            "Node.js",
+            "Python",
+            "Java",
+            "C#",
+            "Go",
+            "PHP"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Backend фреймворк",
+          "alternatives": [
+            "Express.js",
+            "NestJS",
+            "Django",
+            "FastAPI",
+            "Spring Boot",
+            "ASP.NET Core",
+            "Laravel"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "База данных",
+          "alternatives": [
+            "PostgreSQL",
+            "MySQL",
+            "MongoDB",
+            "MS SQL Server"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "HTML/CSS",
+          "alternatives": [
+            "HTML",
+            "CSS"
+          ],
+          "minimum_technologies": 2
+        },
+        {
+          "name": "API",
+          "alternatives": [
+            "REST API",
+            "GraphQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контроль версий",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Доставка",
+          "alternatives": [
+            "Docker",
+            "GitHub Actions",
+            "GitLab CI/CD"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Тестирование",
+          "alternatives": [
+            "Jest",
+            "pytest",
+            "JUnit",
+            "Playwright",
+            "Cypress"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "ML / AI": {
+      "foundation": "Валидация, утечки данных, метрики, обучение и инференс",
+      "advanced": "MLOps, мониторинг деградации, design of experiments, стоимость инференса",
+      "groups": [
+        {
+          "name": "Программирование",
+          "alternatives": [
+            "Python"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Математические вычисления",
+          "alternatives": [
+            "NumPy",
+            "pandas"
+          ],
+          "minimum_technologies": 2
+        },
+        {
+          "name": "ML-основа",
+          "alternatives": [
+            "scikit-learn",
+            "Machine Learning"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "DL-фреймворк",
+          "alternatives": [
+            "PyTorch",
+            "TensorFlow"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Текст и генерация",
+          "alternatives": [
+            "NLP",
+            "Generative AI / LLM",
+            "Hugging Face"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Управление экспериментами",
+          "alternatives": [
+            "MLflow",
+            "MLOps"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Работа с данными",
+          "alternatives": [
+            "SQL",
+            "PostgreSQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Развёртывание",
+          "alternatives": [
+            "Docker",
+            "FastAPI"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Специализация AI",
+          "alternatives": [
+            "Computer Vision",
+            "RecSys",
+            "Audio / Speech",
+            "Search / Retrieval",
+            "Time Series"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Версионирование",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Data Science": {
+      "foundation": "Статистика, выбор метрик, CV, интерпретация моделей",
+      "advanced": "Причинные выводы, эксперименты, доверительные интервалы, production ML",
+      "groups": [
+        {
+          "name": "Программирование",
+          "alternatives": [
+            "Python",
+            "R"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Работа с массивами и таблицами",
+          "alternatives": [
+            "NumPy",
+            "pandas"
+          ],
+          "minimum_technologies": 2
+        },
+        {
+          "name": "ML моделирование",
+          "alternatives": [
+            "scikit-learn",
+            "CatBoost",
+            "XGBoost"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "SQL",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Визуализация",
+          "alternatives": [
+            "Power BI",
+            "Tableau",
+            "Qlik Sense"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Эксперименты",
+          "alternatives": [
+            "MLflow"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Deep Learning",
+          "alternatives": [
+            "PyTorch",
+            "TensorFlow"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Тип задач",
+          "alternatives": [
+            "Time Series",
+            "RecSys",
+            "NLP",
+            "Computer Vision"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Обработка больших данных",
+          "alternatives": [
+            "Spark",
+            "ClickHouse"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Git",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Data Engineering": {
+      "foundation": "ETL/ELT, схемы, качество данных, идемпотентность",
+      "advanced": "Streaming semantics, lakehouse, масштабирование, lineage, governance",
+      "groups": [
+        {
+          "name": "SQL",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Язык обработки",
+          "alternatives": [
+            "Python",
+            "Scala",
+            "Java"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Оркестрация",
+          "alternatives": [
+            "Airflow"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Хранилища",
+          "alternatives": [
+            "PostgreSQL",
+            "ClickHouse",
+            "Greenplum",
+            "Hive"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Трансформации",
+          "alternatives": [
+            "dbt",
+            "Spark"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Потоки",
+          "alternatives": [
+            "Kafka",
+            "Flink",
+            "RabbitMQ"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Распределённая обработка",
+          "alternatives": [
+            "Spark",
+            "Hadoop"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Lakehouse",
+          "alternatives": [
+            "Apache Iceberg",
+            "Trino"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контейнеры",
+          "alternatives": [
+            "Docker"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Cloud",
+          "alternatives": [
+            "AWS",
+            "GCP",
+            "Azure",
+            "Yandex Cloud"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Data Analytics": {
+      "foundation": "SQL JOIN, метрики, сегментация, дашборды",
+      "advanced": "A/B-тесты, статистические ошибки, продуктовые метрики, причинность",
+      "groups": [
+        {
+          "name": "SQL",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Таблицы",
+          "alternatives": [
+            "Excel"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "BI-платформа",
+          "alternatives": [
+            "Power BI",
+            "Tableau",
+            "Qlik Sense"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Python или R",
+          "alternatives": [
+            "Python",
+            "R"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Обработка данных",
+          "alternatives": [
+            "pandas",
+            "Power Query"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Базы аналитики",
+          "alternatives": [
+            "ClickHouse",
+            "PostgreSQL",
+            "MS SQL Server"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Визуальные вычисления",
+          "alternatives": [
+            "DAX",
+            "Power Query"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Сложные запросы",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Автоматизация",
+          "alternatives": [
+            "Python",
+            "Power Query"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "System Analysis": {
+      "foundation": "Требования, use cases, BPMN/UML, API контракты",
+      "advanced": "НФТ, согласование контрактов, интеграционная архитектура, риски",
+      "groups": [
+        {
+          "name": "Моделирование процессов",
+          "alternatives": [
+            "BPMN"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Моделирование систем",
+          "alternatives": [
+            "UML",
+            "C4 Model"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "API-контракты",
+          "alternatives": [
+            "REST API",
+            "OpenAPI",
+            "SOAP",
+            "GraphQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Форматы",
+          "alternatives": [
+            "JSON",
+            "XML"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Работа с БД",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Документация",
+          "alternatives": [
+            "Confluence",
+            "Jira"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Спецификация интерфейсов",
+          "alternatives": [
+            "Swagger",
+            "OpenAPI"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Взаимодействие сервисов",
+          "alternatives": [
+            "Kafka",
+            "RabbitMQ",
+            "gRPC",
+            "WebSocket"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Визуализация схем",
+          "alternatives": [
+            "PlantUML"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "DevOps / SRE": {
+      "foundation": "Linux, сеть, деплой, CI/CD, мониторинг",
+      "advanced": "SLO/SLI, incident response, capacity planning, disaster recovery",
+      "groups": [
+        {
+          "name": "ОС",
+          "alternatives": [
+            "Linux"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Автоматизация",
+          "alternatives": [
+            "Bash",
+            "Python"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контейнеризация",
+          "alternatives": [
+            "Docker"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контроль версий",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "CI/CD",
+          "alternatives": [
+            "GitHub Actions",
+            "GitLab CI/CD",
+            "Jenkins"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Оркестрация",
+          "alternatives": [
+            "Kubernetes",
+            "OpenShift"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "IaC",
+          "alternatives": [
+            "Terraform",
+            "Ansible"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Мониторинг",
+          "alternatives": [
+            "Prometheus",
+            "Grafana",
+            "Zabbix"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Логи и трейсы",
+          "alternatives": [
+            "ELK Stack",
+            "OpenTelemetry"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Облако",
+          "alternatives": [
+            "AWS",
+            "GCP",
+            "Azure",
+            "Yandex Cloud"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Доставка в Kubernetes",
+          "alternatives": [
+            "Helm",
+            "Argo CD"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "QA": {
+      "foundation": "Тест-дизайн, баг-репорты, функциональные и API проверки",
+      "advanced": "Стратегия тестирования, риск-ориентированная автоматизация, качество пайплайнов",
+      "groups": [
+        {
+          "name": "API-тесты",
+          "alternatives": [
+            "Postman",
+            "SoapUI"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Учёт тестов",
+          "alternatives": [
+            "TestRail",
+            "Jira"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Язык автоматизации",
+          "alternatives": [
+            "Python",
+            "Java",
+            "JavaScript",
+            "TypeScript"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "UI автотесты",
+          "alternatives": [
+            "Selenium",
+            "Playwright",
+            "Cypress"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Модульные тесты",
+          "alternatives": [
+            "pytest",
+            "JUnit",
+            "Jest"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контроль версий",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "CI/CD",
+          "alternatives": [
+            "GitHub Actions",
+            "GitLab CI/CD",
+            "Jenkins"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Нагрузочные тесты",
+          "alternatives": [
+            "JMeter"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Мобильные тесты",
+          "alternatives": [
+            "Appium"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Отчётность",
+          "alternatives": [
+            "Allure"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Mobile": {
+      "foundation": "Lifecycle, навигация, UI, сеть, сборка",
+      "advanced": "Offline-first, performance, безопасность, релизы и краш-аналитика",
+      "groups": [
+        {
+          "name": "Мобильная платформа",
+          "alternatives": [
+            "Android",
+            "iOS",
+            "Flutter",
+            "React Native"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Язык платформы",
+          "alternatives": [
+            "Kotlin",
+            "Swift",
+            "Dart",
+            "JavaScript",
+            "TypeScript"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "UI стек",
+          "alternatives": [
+            "Jetpack Compose",
+            "SwiftUI",
+            "Flutter",
+            "React Native"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Build tools",
+          "alternatives": [
+            "Gradle",
+            "Android SDK"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Git",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Сетевые API",
+          "alternatives": [
+            "REST API",
+            "JSON"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Тестирование",
+          "alternatives": [
+            "JUnit",
+            "Appium"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Хранилище",
+          "alternatives": [
+            "SQLite"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "CI/CD",
+          "alternatives": [
+            "GitHub Actions",
+            "GitLab CI/CD"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Cybersecurity": {
+      "foundation": "Сетевые протоколы, логирование, угрозы, триаж",
+      "advanced": "Threat modeling, расследование инцидентов, контроли, регуляторика",
+      "groups": [
+        {
+          "name": "Сети",
+          "alternatives": [
+            "TCP/IP",
+            "DNS",
+            "VPN"
+          ],
+          "minimum_technologies": 2
+        },
+        {
+          "name": "ОС",
+          "alternatives": [
+            "Linux",
+            "Windows Server"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Анализ трафика",
+          "alternatives": [
+            "Wireshark"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Обнаружение инцидентов",
+          "alternatives": [
+            "SIEM",
+            "Wazuh",
+            "Suricata"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Оценка поверхности атак",
+          "alternatives": [
+            "Nmap",
+            "Burp Suite",
+            "OWASP"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Защита периметра",
+          "alternatives": [
+            "WAF",
+            "IDS/IPS"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Управление доступом",
+          "alternatives": [
+            "Active Directory"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Защита данных",
+          "alternatives": [
+            "DLP",
+            "CryptoPro",
+            "VipNet"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Мониторинг",
+          "alternatives": [
+            "ELK Stack",
+            "Kaspersky Security Center"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Пентест инструменты",
+          "alternatives": [
+            "Kali Linux",
+            "Metasploit"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "System / Network": {
+      "foundation": "Администрирование ОС, адресация, DNS/DHCP, диагностика",
+      "advanced": "Проектирование сетей, HA, восстановление, сегментация и контроль доступа",
+      "groups": [
+        {
+          "name": "Сети",
+          "alternatives": [
+            "TCP/IP",
+            "DNS",
+            "DHCP"
+          ],
+          "minimum_technologies": 3
+        },
+        {
+          "name": "ОС",
+          "alternatives": [
+            "Linux",
+            "Windows Server"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Маршрутизация",
+          "alternatives": [
+            "Cisco IOS",
+            "MikroTik RouterOS"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Сегментация",
+          "alternatives": [
+            "VLAN"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Удалённый доступ",
+          "alternatives": [
+            "VPN"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Мониторинг",
+          "alternatives": [
+            "Zabbix",
+            "Grafana"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Службы каталога",
+          "alternatives": [
+            "Active Directory"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Виртуализация",
+          "alternatives": [
+            "VMware ESXi",
+            "Hyper-V",
+            "Proxmox"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Динамическая маршрутизация",
+          "alternatives": [
+            "OSPF",
+            "BGP"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Автоматизация",
+          "alternatives": [
+            "Bash",
+            "PowerShell",
+            "Ansible"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Database": {
+      "foundation": "SQL, схемы, индексы, бэкапы, транзакции",
+      "advanced": "Репликация, HA, планы запросов, восстановление, performance tuning",
+      "groups": [
+        {
+          "name": "SQL",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Реляционная СУБД",
+          "alternatives": [
+            "PostgreSQL",
+            "MySQL",
+            "MS SQL Server",
+            "Oracle",
+            "MariaDB"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "NoSQL",
+          "alternatives": [
+            "MongoDB",
+            "Cassandra",
+            "Redis"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Аналитическая БД",
+          "alternatives": [
+            "ClickHouse",
+            "Greenplum"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Оптимизация запросов",
+          "alternatives": [
+            "SQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Автоматизация",
+          "alternatives": [
+            "Python",
+            "Bash"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контейнеры",
+          "alternatives": [
+            "Docker"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Наблюдаемость",
+          "alternatives": [
+            "Prometheus",
+            "Grafana",
+            "Zabbix"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Поисковые индексы",
+          "alternatives": [
+            "Elasticsearch",
+            "OpenSearch"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Software Engineering": {
+      "foundation": "Структуры данных, алгоритмы, тесты, отладка, Git",
+      "advanced": "Проектирование API, архитектурные компромиссы, конкурентность, сопровождение",
+      "groups": [
+        {
+          "name": "Язык разработки",
+          "alternatives": [
+            "C",
+            "C++",
+            "Rust",
+            "Java",
+            "C#",
+            "Go",
+            "Python"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Git",
+          "alternatives": [
+            "Git"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Сборка",
+          "alternatives": [
+            "Maven",
+            "Gradle",
+            "npm"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Тестирование",
+          "alternatives": [
+            "JUnit",
+            "pytest",
+            "Jest"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "API",
+          "alternatives": [
+            "REST API",
+            "gRPC"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "База данных",
+          "alternatives": [
+            "PostgreSQL",
+            "SQLite",
+            "MySQL"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "CI/CD",
+          "alternatives": [
+            "GitHub Actions",
+            "GitLab CI/CD",
+            "Jenkins"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Linux",
+          "alternatives": [
+            "Linux"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Контейнеры",
+          "alternatives": [
+            "Docker"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Наблюдаемость",
+          "alternatives": [
+            "OpenTelemetry",
+            "Prometheus"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 2,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 5,
+          "mandatory_first_n_groups": 3,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 7,
+          "mandatory_first_n_groups": 4,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    },
+    "Other IT": {
+      "foundation": "Базовые рабочие практики для конкретной роли",
+      "advanced": "Экспертиза и ответственность в явно определённой роли",
+      "groups": [
+        {
+          "name": "Версионирование / артефакты",
+          "alternatives": [
+            "Git",
+            "GitHub",
+            "GitLab",
+            "Bitbucket"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Описание процессов",
+          "alternatives": [
+            "Confluence",
+            "Jira",
+            "BPMN"
+          ],
+          "minimum_technologies": 1
+        },
+        {
+          "name": "Базовые цифровые инструменты",
+          "alternatives": [
+            "Excel",
+            "SQL",
+            "JSON"
+          ],
+          "minimum_technologies": 1
+        }
+      ],
+      "levels": {
+        "Junior": {
+          "minimum_confirmed_groups": 2,
+          "mandatory_first_n_groups": 1,
+          "minimum_groups_at_target_grade": 1,
+          "practical_case_required": true
+        },
+        "Middle": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 1,
+          "minimum_groups_at_target_grade": 2,
+          "practical_case_required": true
+        },
+        "Senior": {
+          "minimum_confirmed_groups": 3,
+          "mandatory_first_n_groups": 1,
+          "minimum_groups_at_target_grade": 3,
+          "practical_case_required": true
+        }
+      }
+    }
+  }
+}

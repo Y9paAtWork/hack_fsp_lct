@@ -19,7 +19,7 @@ export function ProfileProvider({children}){
   const work=async()=>{
    if(!dirty.current||user?.role!=='candidate'||id!==epoch.current)return;
    const gen=generation.current;setSaving(true);
-   try{const r=await api('/profile',{method:'PUT',body:{profile:latest.current,revision:revision.current}});if(id!==epoch.current)return;revision.current=r.revision;if(gen===generation.current)dirty.current=false;setError('');}
+   try{const r=await api('/profile',{method:'PUT',body:{profile:latest.current,revision:revision.current}});if(id!==epoch.current)return;revision.current=r.revision;if(gen===generation.current){latest.current=sanitizeProfile(r.profile);setProfile(latest.current);dirty.current=false;}setError('');}
    catch(e){if(id===epoch.current)setError(e.message);throw e;}
    finally{if(id===epoch.current)setSaving(false);}
   };
@@ -32,5 +32,5 @@ export function ProfileProvider({children}){
 export const useProfile=()=>useContext(Context);
 export function useCandidate(){
  const {profile}=useProfile();
- return {name:profile.name||'Кандидат',firstName:profile.name.split(' ')[0]||'Кандидат',role:profile.selected.join(' / ')||'Специализация не выбрана',grade:'Грейд не подтверждён',stack:profileSkills(profile),score:profile.quiz?.score||0,completion:Math.round(([!!profile.name,!!profile.email,!!profile.selected.length,!!profileSkills(profile).length,!!Object.values(profile.jobs).flat().length].filter(Boolean).length/5)*100),experience:profile.selected.flatMap(s=>(profile.jobs[s]||[]).map(j=>({...j,period:`${j.start}–${j.end}`,role:j.role||s}))),achievements:[]};
+ return {name:profile.name||'Кандидат',firstName:profile.name.split(' ')[0]||'Кандидат',role:profile.selected.join(' / ')||'Специализация не выбрана',stack:profileSkills(profile),completion:Math.round(([!!profile.name,!!profile.email,!!profile.selected.length,!!profileSkills(profile).length,!!Object.values(profile.jobs).flat().length].filter(Boolean).length/5)*100),experience:profile.selected.flatMap(s=>(profile.jobs[s]||[]).map(j=>({...j,period:`${j.start}–${j.end}`,role:j.role||s}))),achievements:[]};
 }

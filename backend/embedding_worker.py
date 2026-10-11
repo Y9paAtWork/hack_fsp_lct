@@ -14,14 +14,31 @@ TASK='retrieval.passage'
 DIMENSIONS=1024
 
 class LocalJina:
-    def __init__(self):
+    def __init__(self,model_path=None,task=TASK):
+        # Remote-code modules need a writable cache even when weights are local.
+        os.environ.setdefault('HF_HOME',str(Path(__file__).resolve().parents[1]/'.cache'/'huggingface'))
         import torch
-        from transformers import AutoModel
+        from transformers import AutoModel, AutoTokenizer
+        from transformers.dynamic_module_utils import HF_MODULES_CACHE
+        import shutil
         torch.set_num_threads(min(8,os.cpu_count() or 1))
         self.device='cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
-        self.model=AutoModel.from_pretrained(MODEL,revision=REVISION,code_revision='bd55a5ec8e6c0fb1d6c26efb4b6a4a74ce8a88d3',trust_remote_code=True).to(self.device).eval()
+        self.task=task
+        source=model_path or MODEL
+        options={'trust_remote_code':True}
+        if model_path:
+            options.update(local_files_only=True,use_flash_attn=False)
+            module_name=Path(model_path).name.replace('-','_hyphen_')
+            module_dir=Path(HF_MODULES_CACHE)/'transformers_modules'/module_name
+            module_dir.mkdir(parents=True,exist_ok=True)
+            for source_file in Path(model_path).glob('*.py'):
+                shutil.copy2(source_file,module_dir/source_file.name)
+        else:options.update(revision=REVISION,code_revision='bd55a5ec8e6c0fb1d6c26efb4b6a4a74ce8a88d3')
+        self.model=AutoModel.from_pretrained(source,**options).to(self.device).eval()
+        if model_path:
+            self.model.roberta.tokenizer=AutoTokenizer.from_pretrained(model_path,local_files_only=True,fix_mistral_regex=True)
     def encode(self,texts):
-        vectors=self.model.encode(texts,task=TASK,batch_size=min(8,len(texts)),max_length=8192,truncate_dim=DIMENSIONS,show_progress_bar=False,convert_to_numpy=False)
+        vectors=self.model.encode(texts,task=self.task,batch_size=min(8,len(texts)),max_length=8192,truncate_dim=DIMENSIONS,show_progress_bar=False,convert_to_numpy=False)
         return [vector.detach().float().cpu().tolist() for vector in vectors]
 
 class ApiJina:
@@ -63,11 +80,15 @@ def aggregate_items(c,hashes,revision):
         (item_id,user_id,model,revision,task,dimensions,vector,chunk_count,created_at) VALUES(?,?,?,?,?,?,?,?,?)''',
                   (item_id,user[0],MODEL,revision,TASK,DIMENSIONS,(mean/norm).astype('<f4').tobytes(),len(chunks),now()))
 
-def run_batch(encoder,db=None,batch=16,revision=REVISION):
+def run_batch(encoder,db=None,batch=16,revision=REVISION,user_id=None):
+    user_filter=' AND w.user_id=?' if user_id else ''
+    user_params=[user_id] if user_id else []
     with connect(db) as c:
         cached=c.execute('''SELECT DISTINCT ch.content_sha256 FROM embedding_chunks ch JOIN embeddings e
         ON e.content_sha256=ch.content_sha256 AND e.model=? AND e.revision=? AND e.task=? AND e.dimensions=?
-        WHERE ch.status!='ready' LIMIT 500''',(MODEL,revision,TASK,DIMENSIONS)).fetchall()
+        JOIN work_items w ON w.id=ch.item_id
+        WHERE ch.status!='ready' '''+user_filter+' LIMIT 500',
+        [MODEL,revision,TASK,DIMENSIONS,*user_params]).fetchall()
         hashes=[r[0] for r in cached]
         if hashes:
             c.executemany("UPDATE embedding_chunks SET status='ready',error=NULL,updated_at=? WHERE content_sha256=?",[(now(),h) for h in hashes])
@@ -75,8 +96,9 @@ def run_batch(encoder,db=None,batch=16,revision=REVISION):
         rows=c.execute('''SELECT ch.content_sha256, MIN(content) content FROM embedding_chunks ch
         JOIN work_items w ON w.id=ch.item_id JOIN users u ON u.id=w.user_id
         WHERE status='pending' AND NOT EXISTS(SELECT 1 FROM embeddings e WHERE e.content_sha256=ch.content_sha256
-        AND e.model=? AND e.revision=? AND e.task=? AND e.dimensions=?)
-        GROUP BY ch.content_sha256 ORDER BY MIN(CASE WHEN u.origin='registration' THEN 0 ELSE 1 END), LENGTH(content),ch.content_sha256 LIMIT ?''',(MODEL,revision,TASK,DIMENSIONS,batch)).fetchall()
+        AND e.model=? AND e.revision=? AND e.task=? AND e.dimensions=?)'''+user_filter+'''
+        GROUP BY ch.content_sha256 ORDER BY MIN(CASE WHEN u.origin='registration' THEN 0 ELSE 1 END), LENGTH(content),ch.content_sha256 LIMIT ?''',
+        [MODEL,revision,TASK,DIMENSIONS,*user_params,batch]).fetchall()
     if not rows:return len(hashes)
     try:
         vectors=normalize_vectors(encoder.encode([r['content'] for r in rows]),len(rows))

@@ -15,7 +15,10 @@ const aliases = {
   'scikit-learn':['scikit-learn','sklearn'], 'MS SQL Server':['ms sql server','mssql'],
   '1C':['1c','1с'], 'REST API':['rest api','rest'], 'Hugging Face':['hugging face','huggingface'],
   'GitLab CI/CD':['gitlab ci/cd','gitlab ci'], 'Tailwind CSS':['tailwind css','tailwind'],
-  'Machine Learning':['machine learning','машинное обучение'],
+  'Machine Learning':['machine learning','машинное обучение','ml'],
+  'Deep Learning':['deep learning','глубокое обучение','dl'],
+  'Generative AI / LLM':['llm'],
+  'Search / Retrieval':['rag'],
 };
 const word = /[\p{L}\p{N}_+#]/u;
 const ambiguous = new Set(['Go','R','C']);

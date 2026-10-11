@@ -32,7 +32,7 @@ def technologies(c, table, field, entity_id, values):
         c.execute(f'INSERT OR IGNORE INTO {table}({field},technology) VALUES(?,?)',(entity_id,name))
 
 def seed_catalog(c):
-    with open(ROOT/'technology_stack_FINAL.csv',encoding='utf-8-sig') as f:
+    with open(ROOT/'backend'/'technology_stack_FINAL.csv',encoding='utf-8-sig') as f:
         for r in csv.DictReader(f):
             c.execute('INSERT INTO technologies(name,categories_json,test_required) VALUES(?,?,?) ON CONFLICT(name) DO UPDATE SET categories_json=excluded.categories_json,test_required=excluded.test_required',
                       (r['technology'],dump(r['category'].split('; ')),int(r['test_required'])))

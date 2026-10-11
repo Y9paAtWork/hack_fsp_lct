@@ -16,3 +16,7 @@ test('Longer names win without nested duplicates',()=>assert.deepEqual(extractSk
 test('Multi-line aliases and technology versions',()=>assert.deepEqual(extractSkills('Power\nBI; Python 3.12; postgres 16; sklearn').skills,['Power BI','Python','PostgreSQL','scikit-learn']));
 test('Exclude direct negations while retaining positive skills',()=>{const r=extractSkills('Не знаю Docker\nSkills: Python\nno experience with Kubernetes');assert.deepEqual(r.skills,['Python']);assert.deepEqual(r.excluded.map(e=>e.skill),['Docker','Kubernetes'])});
 test('Ambiguous languages require context',()=>{assert.deepEqual(extractSkills('Go to work. R and C.').skills,[]);assert.deepEqual(extractSkills('Стек: Go, R, C').skills,['Go','R','C'])});
+test('Resume abbreviations resolve only to canonical catalog terms',()=>{
+ const found=extractSkills('Технический стек: ML / DL / LLM / RAG').skills;
+ assert.deepEqual(found,['Machine Learning','Deep Learning','Generative AI / LLM','Search / Retrieval']);
+});

@@ -1,8 +1,16 @@
 import json
+import csv
 import uuid
+from functools import lru_cache
+from pathlib import Path
 from .db import now
 from .splitting import insert_item
 from .import_data import dump, technologies
+
+@lru_cache(maxsize=1)
+def allowed_technologies():
+    with (Path(__file__).with_name('technology_stack_FINAL.csv')).open(encoding='utf-8-sig',newline='') as source:
+        return {row['technology'] for row in csv.DictReader(source)}
 
 def empty_profile(name='',email=''):
     return {'version':1,'name':name,'email':email,'fsp':'','terms':True,'step':1,'selected':[],'active':'','stacks':{},'jobs':{},'ownProjects':{},'quiz':None}
@@ -24,10 +32,8 @@ def sanitize(value,name,email):
             p[key][spec]=[{k:(r.get(k,'')[:20000] if isinstance(r.get(k,''),str) else '') for k in fields} for r in rows[:100] if isinstance(r,dict)]
     source=value.get('stacks',{})
     if isinstance(source,dict):
-        p['stacks']={spec:list(dict.fromkeys(s[:100] for s in source.get(spec,[]) if isinstance(s,str)))[:300] for spec in p['selected'] if isinstance(source.get(spec,[]),list)}
-    q=value.get('quiz')
-    if isinstance(q,dict) and type(q.get('total')) is int and 0<q['total']<=1000 and type(q.get('correct')) is int and 0<=q['correct']<=q['total']:
-        p['quiz']={'total':q['total'],'correct':q['correct'],'score':round(100*q['correct']/q['total']),'date':str(q.get('date',''))[:100]}
+        allowed=allowed_technologies()
+        p['stacks']={spec:list(dict.fromkeys(s for s in source.get(spec,[]) if isinstance(s,str) and s in allowed))[:202] for spec in p['selected'] if isinstance(source.get(spec,[]),list)}
     return p
 
 def sync_resume(c,user,profile):

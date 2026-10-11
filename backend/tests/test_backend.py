@@ -3,6 +3,7 @@ import json
 import csv
 import tempfile
 import unittest
+from unittest.mock import patch
 import numpy as np
 from pathlib import Path
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ from backend.db import connect, init_db
 from backend.import_data import import_file
 from backend.splitting import split_resume, chunks, digest, insert_item
 from backend.embedding_worker import run_batch, MODEL, REVISION, TASK, DIMENSIONS
+from backend.tests.registration import candidate_payload
 
 class BackendTests(unittest.TestCase):
  def setUp(self):
@@ -22,13 +24,14 @@ class BackendTests(unittest.TestCase):
   else:os.environ['FSP_DB']=self.old
   self.tmp.cleanup()
  def signup(self,email='nika@example.org',role='candidate'):
-  r=self.client.post('/api/auth/register',json={'name':'Ника','email':email,'password':'test-password-123','role':role,'company_name':'Acme' if role=='employer' else ''});self.assertEqual(r.status_code,200,r.text);return r.json()['user']
+  payload=candidate_payload(email=email) if role=='candidate' else {'name':'Ника','email':email,'password':'test-password-123','role':role,'company_name':'Acme'}
+  r=self.client.post('/api/auth/register',json=payload);self.assertEqual(r.status_code,200,r.text);return r.json()['user']
  def test_auth_password_hash_logout_login_and_duplicate(self):
   u=self.signup();self.assertEqual(self.client.get('/api/auth/me').json()['user']['id'],u['id'])
   with connect() as c:
    row=c.execute('SELECT password_hash FROM users WHERE id=?',(u['id'],)).fetchone();self.assertTrue(row[0].startswith('$argon2id$'));self.assertNotIn('test-password',row[0])
    token=c.execute('SELECT token_hash FROM sessions').fetchone()[0];self.assertNotEqual(token,self.client.cookies.get('fsp_session'))
-  self.assertEqual(self.client.post('/api/auth/register',json={'name':'N','email':'NIKA@example.org','password':'test-password-123','role':'candidate'}).status_code,409)
+  self.assertEqual(self.client.post('/api/auth/register',json=candidate_payload(name='N',email='NIKA@example.org')).status_code,409)
   self.client.post('/api/auth/logout');self.assertEqual(self.client.get('/api/profile').status_code,401)
   self.assertEqual(self.client.post('/api/auth/login',json={'email':'nika@example.org','password':'wrong'}).status_code,401)
   self.assertEqual(self.client.post('/api/auth/login',json={'email':'nika@example.org','password':'test-password-123'}).status_code,200)
@@ -56,6 +59,53 @@ class BackendTests(unittest.TestCase):
   payload={'name':'Nika','email':'n@example.org','password':'short','role':'candidate'}
   self.assertEqual(self.client.post('/api/auth/register',json=payload).status_code,422)
   payload['password']='long-password';self.assertEqual(self.client.post('/api/auth/register',json=payload,headers={'Origin':'https://evil.example'}).status_code,403)
+ def test_candidate_is_inserted_only_after_complete_registration(self):
+  incomplete={'name':'Ника','email':'draft@example.org','password':'test-password-123','role':'candidate'}
+  self.assertEqual(self.client.post('/api/auth/register',json=incomplete).status_code,422)
+  with connect() as c:self.assertEqual(c.execute("SELECT count(*) FROM users WHERE email='draft@example.org'").fetchone()[0],0)
+  complete=candidate_payload(email='draft@example.org',grade='Middle')
+  complete['profile']['fsp']='fsp-123'
+  complete['profile']['stacks']={'Backend':['Python']}
+  complete['profile']['jobs']={'Backend':[{'company':'Acme','role':'Backend Developer','start':'2022','end':'2025','description':'Python API'}]}
+  complete['profile']['ownProjects']={'Backend':[{'name':'Pet app','description':'Сервис на Python','tasks':'Разработка API'}]}
+  self.assertEqual(self.client.post('/api/auth/register',json=complete).status_code,200)
+  with connect() as c:
+   self.assertEqual(c.execute("SELECT count(*) FROM users WHERE email='draft@example.org'").fetchone()[0],1)
+   self.assertEqual(c.execute("SELECT declared_grade FROM candidate_specialization_grades WHERE specialization='Backend'").fetchone()[0],'Middle')
+  def assert_saved_profile():
+   saved=self.client.get('/api/profile')
+   self.assertEqual(saved.status_code,200,saved.text)
+   p=saved.json()['profile']
+   self.assertEqual(p['step'],4)
+   self.assertEqual(p['fsp'],'fsp-123')
+   self.assertEqual(p['selected'],['Backend'])
+   self.assertEqual(p['stacks']['Backend'],['Python'])
+   self.assertEqual(p['jobs']['Backend'][0]['company'],'Acme')
+   self.assertEqual(p['ownProjects']['Backend'][0]['name'],'Pet app')
+  assert_saved_profile()
+  self.assertEqual(self.client.post('/api/auth/logout').status_code,200)
+  self.assertEqual(self.client.post('/api/auth/login',json={'email':'draft@example.org','password':'test-password-123'}).status_code,200)
+  assert_saved_profile()
+ def test_employer_can_save_and_index_own_vacancy(self):
+  owner=self.signup('owner@example.org','employer')
+  payload={'vacancy_name':'Backend Engineer','specialization':'Backend',
+           'description':'Разрабатываем сервисы для управления заказами и платежами.',
+           'responsibilities':'Разрабатывать API, проектировать сервисы и улучшать производительность.',
+           'position_requirements':'Опыт с Python и PostgreSQL'}
+  result=self.client.post('/api/vacancies',json=payload)
+  self.assertEqual(result.status_code,201,result.text)
+  vid=result.json()['id']
+  mine=self.client.get('/api/vacancies?mine=true').json()['items']
+  self.assertEqual(len(mine),1)
+  self.assertEqual(mine[0]['employer_id'],owner['id'])
+  self.assertIn('Python',json.loads(mine[0]['all_technologies_json']))
+  with patch('backend.ranking_cli.index_vacancies') as indexer:
+   self.assertEqual(self.client.post(f'/api/vacancies/{vid}/index').status_code,200)
+   indexer.assert_called_once_with(None,[vid])
+  self.client.post('/api/auth/logout')
+  self.signup('another@example.org','employer')
+  self.assertEqual(self.client.post(f'/api/vacancies/{vid}/index').status_code,403)
+  self.assertEqual(self.client.get(f'/api/matches/{vid}').status_code,403)
  def test_split_composite_deduplicated_metadata_and_project(self):
   row={'work_experience_text':'Developer @ Acme [2020-01-01 — present] Python API || Analyst @ Beta [2018 — 2020] SQL', 'work_experience_titles':'Developer; Analyst','work_experience_companies':'Acme; Beta','additional_information':'Проект: Resume app\nDocker API'}
   items=split_resume(row);self.assertEqual([i['kind'] for i in items],['work','work','project']);self.assertEqual(items[0]['company'],'Acme')

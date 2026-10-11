@@ -2,6 +2,9 @@ node_modules/
 dist/
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example
 
 # Исходные архивы, датасеты и веса моделей не входят в фронтенд-репозиторий.
 *.zip
@@ -10,15 +13,31 @@ dist/
 *.tar.gz
 *.pdf
 *.csv
+!backend/technology_stack_FINAL.csv
 *.parquet
 *.onnx
 *.pt
 *.pth
 *.safetensors
+models/
 
 .venv/
+.cache/
 __pycache__/
-data/*.sqlite3*
-.env
+*.pyc
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.duckdb
+*.npy
+*.npz
+*.pkl
+*.joblib
+data/*
+!data/checkpoint.json
 
 backups/
+out/

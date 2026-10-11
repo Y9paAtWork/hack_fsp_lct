@@ -35,13 +35,6 @@ export function rankedPeople(vacancy) {
   }));
 }
 
-export const initialThreads = [
-  {id:'thread-1',kind:'invitation',company:'Компания А',candidateName:candidate.name,role:'Backend Developer',salary:'250 000 — 320 000 ₽',specialty:'Backend · Middle',stack:'Python, Django, PostgreSQL',status:'Новое',time:'2 часа назад',messages:[{id:1,from:'employer',text:'Здравствуйте! Нам понравился ваш опыт разработки backend-сервисов. Будем рады обсудить предложение.',time:'10:42'}]},
-  {id:'thread-2',kind:'invitation',company:'Компания Б',candidateName:candidate.name,role:'Backend Developer',salary:'220 000 — 280 000 ₽',specialty:'Backend · Middle',stack:'Python, PostgreSQL',status:'Просмотрено',time:'вчера',messages:[{id:2,from:'employer',text:'Добрый день! Приглашаем вас поговорить о проекте нашей команды.',time:'Вчера'}]},
-  {id:'thread-3',kind:'response',company:'Компания В',candidateName:candidate.name,role:'Python Developer',salary:'210 000 — 270 000 ₽',specialty:'Backend · Middle',stack:'Python, FastAPI, PostgreSQL',status:'В диалоге',time:'сегодня',messages:[{id:3,from:'candidate',text:'Здравствуйте! Откликнулась на вашу вакансию Python Developer. Могу рассказать о своём опыте.',time:'09:15'},{id:4,from:'employer',text:'Спасибо за отклик! Поделитесь, пожалуйста, самым интересным проектом.',time:'09:42'}]},
-  {id:'thread-4',kind:'response',company:'Компания Г',candidateName:candidate.name,role:'Backend Engineer',salary:'240 000 — 310 000 ₽',specialty:'Backend · Middle',stack:'Python, Docker, SQL',status:'В диалоге',time:'вчера',messages:[{id:5,from:'candidate',text:'Добрый день! Хотела бы обсудить вашу вакансию Backend Engineer.',time:'Вчера'},{id:6,from:'employer',text:'Привет! Давайте обсудим ваши задачи и наш проект.',time:'Вчера'}]}
-];
-
 export const dailyQuestions = [
   {question: 'Что помогает уменьшить число повторных запросов к базе данных?', answers: ['Кэширование', 'Увеличение размера ответа', 'Удаление индексов'], correct: 0},
   {question: 'Какой HTTP-метод обычно применяют для получения ресурса?', answers: ['GET', 'DELETE', 'PATCH'], correct: 0},
