@@ -50,6 +50,9 @@ def init_db(path=None):
         resume_columns={row['name'] for row in c.execute('PRAGMA table_info(resumes)')}
         if 'expected_salary_min' not in resume_columns:
             c.execute('ALTER TABLE resumes ADD COLUMN expected_salary_min INTEGER CHECK(expected_salary_min>0)')
+        invitation_columns={row['name'] for row in c.execute('PRAGMA table_info(hiring_invitations)')}
+        if 'currency' not in invitation_columns:
+            c.execute("ALTER TABLE hiring_invitations ADD COLUMN currency TEXT NOT NULL DEFAULT 'RUB' CHECK(currency='RUB')")
         c.execute('CREATE INDEX IF NOT EXISTS ix_vacancy_discovery ON vacancies(visibility,status,specialization)')
         c.execute('''INSERT OR IGNORE INTO candidate_initial_grades(user_id,grade,declared_at)
           SELECT u.id,coalesce(cg.grade,'Junior'),u.created_at FROM users u
@@ -71,3 +74,22 @@ def init_db(path=None):
             from .matching_requirements import backfill_existing
             backfill_existing(c)
             c.execute('INSERT INTO schema_version VALUES(4,?)',(now(),))
+        if not c.execute('SELECT 1 FROM schema_version WHERE version=5').fetchone():
+            # Existing imported scores have no test grade: retain their narrow demo
+            # values at every grade, then rebuild users with graded test history.
+            c.execute('''INSERT OR IGNORE INTO candidate_skill_grade_vectors
+              (user_id,grade,catalog_sha256,dimensions,vector,source,updated_at)
+              SELECT v.user_id,g.grade,v.catalog_sha256,v.dimensions,v.vector,v.source,v.updated_at
+              FROM candidate_skill_vectors v CROSS JOIN
+                (SELECT 'Junior' grade UNION ALL SELECT 'Middle' UNION ALL SELECT 'Senior') g''')
+            c.execute('''UPDATE technology_level_results SET passed=(best_score>=50)
+              WHERE passed!=(best_score>=50)''')
+            users=[row[0] for row in c.execute('SELECT DISTINCT user_id FROM technology_level_results')]
+            if users:
+                from .ranking import catalog, rebuild_skill_vector
+                from .assessments import update_grades
+                names,catalog_hash=catalog()
+                for user_id in users:
+                    rebuild_skill_vector(c,user_id,names,catalog_hash)
+                    update_grades(c,user_id)
+            c.execute('INSERT INTO schema_version VALUES(5,?)',(now(),))

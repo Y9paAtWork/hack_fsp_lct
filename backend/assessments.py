@@ -18,8 +18,9 @@ from .ranking import catalog, record_verified_skill_test, refresh_real_activity
 
 BASE = Path(__file__).parent
 LEVELS = ('Junior', 'Middle', 'Senior')
-THRESHOLDS = {'Junior': 75, 'Middle': 80, 'Senior': 85}
-RULE_VERSION = 'grade-rules-1.0-tech-only-v1'
+PASS_SCORE = 50
+EXCELLENT_SCORE = 90
+RULE_VERSION = 'grade-rules-2.0-pass50-tech-only-v1'
 BANK_VERSION = 'technology-bank-2026-10-unreviewed-v1'
 DAILY_VERSION = 'general-it-106-v1'
 DAILY_SELECTION_VERSION = 'topic-selection-v1'
@@ -116,8 +117,48 @@ def user_test_grade(c, user_id, specialization=None):
     return grade
 
 
-def technology_test_grades(c, user_id):
-    return {user_test_grade(c, user_id, spec) for spec in selected_specializations(c, user_id)}
+def technology_test_grades(c, user_id, specialization, technology=None):
+    if specialization not in selected_specializations(c, user_id):
+        raise HTTPException(422, 'Специализация не выбрана')
+    current = user_test_grade(c, user_id, specialization)
+    position = LEVELS.index(current)
+    allowed = {current}
+    if technology:
+        best = {row['grade']:row['best_score'] for row in c.execute('''SELECT grade,best_score
+          FROM technology_level_results WHERE user_id=? AND technology=?''',(user_id,technology))}
+        for lower_position in range(position-1,-1,-1):
+            above = LEVELS[lower_position+1]
+            if above in best and best[above] < PASS_SCORE:
+                allowed.add(LEVELS[lower_position])
+            else:
+                break
+        for grade in LEVELS[position + 1:]:
+            preceding = LEVELS[LEVELS.index(grade)-1]
+            if best.get(preceding, 0) >= EXCELLENT_SCORE:
+                allowed.add(grade)
+    return [grade for grade in LEVELS if grade in allowed]
+
+
+def technology_cooldowns(c, user_id, technology, clock=None):
+    """Combine all unexpired attempts; one test can lock several levels."""
+    current = clock or datetime.now(timezone.utc)
+    locked = {}
+    for attempt in c.execute('''SELECT grade,score,completed_at FROM assessment_attempts
+      WHERE user_id=? AND technology=? AND status='completed' AND completed_at IS NOT NULL''',
+      (user_id, technology)):
+        until = datetime.fromisoformat(attempt['completed_at']) + timedelta(days=30)
+        if until <= current:
+            continue
+        position = LEVELS.index(attempt['grade'])
+        if attempt['score'] < PASS_SCORE:
+            affected = LEVELS[position:]
+        elif attempt['score'] < EXCELLENT_SCORE:
+            affected = LEVELS
+        else:
+            affected = LEVELS[:position + 1]
+        for grade in affected:
+            locked[grade] = max(locked.get(grade, until), until)
+    return locked
 
 
 def current_grade_progress(c,user_id,specialization=None):
@@ -144,38 +185,49 @@ def advance_test_grade(c,user_id,specialization=None):
     return current_grade_progress(c,user_id,progress['specialization'])
 
 
-def catalog_tests(c, user_id):
+def catalog_tests(c, user_id, specialization):
     rows = []
-    allowed_grades = technology_test_grades(c, user_id)
+    technology_test_grades(c, user_id, specialization)
+    passed_levels = {}
+    for result in c.execute('''SELECT technology,grade,best_score FROM technology_level_results
+      WHERE user_id=? AND passed=1''', (user_id,)):
+        previous = passed_levels.get(result['technology'])
+        if previous is None or LEVELS.index(result['grade']) > LEVELS.index(previous['grade']):
+            passed_levels[result['technology']] = result
     for tech in stack(c, user_id):
+        allowed_grades = technology_test_grades(c, user_id, specialization, tech)
+        cooldowns = technology_cooldowns(c, user_id, tech)
         available = c.execute('''SELECT grade,count(*) FROM test_questions WHERE technology=? AND
           (question_type!='write_code' OR technology IN ('Python','JavaScript','SQL'))
           GROUP BY grade''', (tech,)).fetchall()
         for grade, count in available:
             if grade not in allowed_grades:continue
             prev = latest_attempt(c, user_id, tech, grade)
-            retry_at = None
-            if prev and prev['status'] == 'completed':
-                retry_at = (datetime.fromisoformat(prev['completed_at']) + timedelta(days=30)).isoformat()
-            locked = bool(prev and prev['completed_at'] and not retry_allowed(prev['completed_at']))
+            retry_at = cooldowns[grade].isoformat() if grade in cooldowns else None
+            passed = passed_levels.get(tech)
+            credited = bool(passed and LEVELS.index(passed['grade']) >= LEVELS.index(grade))
+            credited_by_higher = credited and passed['grade'] != grade
             rows.append({'technology': tech, 'grade': grade, 'questions': count,
                          'last_score': prev['score'] if prev else None, 'retry_at': retry_at,
-                         'available': not locked or bool(prev and prev['status'] == 'started')})
+                         'available': grade not in cooldowns,
+                         'credited': credited, 'credited_by_grade': passed['grade'] if credited else None,
+                         'credited_score': (100 if credited_by_higher else passed['best_score']) if credited else None})
     return rows
 
 
-def start_technology(c, user_id, tech, grade):
+def start_technology(c, user_id, tech, grade, specialization):
     if tech not in stack(c, user_id) or grade not in LEVELS:
         raise HTTPException(404, 'Технология или уровень не найдены в вашем стеке')
-    if grade not in technology_test_grades(c, user_id):
+    if grade not in technology_test_grades(c, user_id, specialization, tech):
         raise HTTPException(409,'Этот уровень пока недоступен для вашего грейда')
+    cooldown = technology_cooldowns(c,user_id,tech).get(grade)
+    if cooldown:
+        raise HTTPException(409, f'Тест уровня {grade} доступен с {cooldown.isoformat()}')
     latest = latest_attempt(c, user_id, tech, grade)
     if latest and latest['status'] == 'started':
         ids = json.loads(latest['question_ids_json'])
         return {'attempt_id': latest['id'], 'technology': tech, 'grade': grade,
                 'questions': [question_public(c.execute('SELECT * FROM test_questions WHERE id=?', (qid,)).fetchone()) for qid in ids]}
-    if latest and latest['completed_at'] and not retry_allowed(latest['completed_at']):
-        raise HTTPException(409, 'Пересдача доступна через 30 суток после последней попытки')
     ids = [r[0] for r in c.execute('''SELECT id FROM test_questions WHERE technology=? AND grade=?
       AND (question_type!='write_code' OR technology IN ('Python','JavaScript','SQL')) ORDER BY id''', (tech, grade))]
     if not ids:
@@ -258,11 +310,20 @@ def submit_technology(c, user_id, attempt_id, answers):
       ON CONFLICT(user_id,technology,grade) DO UPDATE SET best_score=excluded.best_score,
       passed=excluded.passed,attempt_id=excluded.attempt_id,tested_at=excluded.tested_at,
       source_version=excluded.source_version''',
-      (user_id, tech, grade, best, int(best >= THRESHOLDS[grade]), attempt_id, at, BANK_VERSION))
+      (user_id, tech, grade, best, int(best >= PASS_SCORE), attempt_id, at, BANK_VERSION))
     record_verified_skill_test(c, user_id, tech, score)
     progress = update_grades(c, user_id)
-    return {'score': score, 'technology': tech, 'grade': grade, 'passed': score >= THRESHOLDS[grade],
-            'next_level_available': score >= 90 and grade != 'Senior', 'progress': progress}
+    position = LEVELS.index(grade)
+    cooldowns = technology_cooldowns(c,user_id,tech)
+    lower = LEVELS[position-1] if position else None
+    higher = LEVELS[position+1] if position < len(LEVELS)-1 else None
+    lower_passed = bool(lower and c.execute('''SELECT 1 FROM technology_level_results
+      WHERE user_id=? AND technology=? AND grade=? AND passed=1''',(user_id,tech,lower)).fetchone())
+    suggested = lower if score < PASS_SCORE and lower and lower not in cooldowns and not lower_passed else None
+    next_available = bool(score >= EXCELLENT_SCORE and higher and higher not in cooldowns)
+    return {'score': score, 'technology': tech, 'grade': grade, 'passed': score >= PASS_SCORE,
+            'suggested_grade': suggested, 'next_level_available': next_available,
+            'next_grade': higher if next_available else None, 'progress': progress}
 
 
 def grade_progress(c, user_id):

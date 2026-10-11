@@ -3,7 +3,7 @@ import {describe,it,expect,afterEach,vi} from 'vitest';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import {AuthProvider} from '../../src/AuthContext';
 import {ProfileProvider} from '../../src/ProfileContext';
-import {CompanyProfile,CandidateVacancies,Conversation} from '../../src/Marketplace';
+import {CompanyProfile,CandidateVacancies,Conversation,InteractionInbox} from '../../src/Marketplace';
 
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
@@ -67,5 +67,44 @@ describe('Marketplace screens',()=>{
   fireEvent.change(field,{target:{value:'Здравствуйте'}});
   fireEvent.click(screen.getByText('Отправить'));
   await screen.findByText('Здравствуйте');
+ });
+ it('creates a standalone invitation with salary visible in the form',async()=>{
+  const posted=[];
+  global.fetch=vi.fn(async(path,options={})=>{
+   if(path==='/api/interactions')return response({items:[]});
+   if(path==='/api/employer/candidates/search?q=%D0%90%D0%BD%D0%BD%D0%B0')return response({items:[{id:'u1',name:'Анна',position_name:'Backend инженер'}]});
+   if(path==='/api/employer/profile')return response({company_name:'Acme'});
+   if(path==='/api/invitations'){posted.push(JSON.parse(options.body));return response({id:'i1',status:'pending'},201)}
+   return response({});
+  });
+  render(<InteractionInbox role="employer" kind="invitation"/>);
+  fireEvent.click(screen.getByText('Новое предложение'));
+  fireEvent.change(screen.getByLabelText('Найти зарегистрированного кандидата'),{target:{value:'Анна'}});
+  fireEvent.click(screen.getByText('Найти'));
+  fireEvent.click(await screen.findByText('Анна · Backend инженер'));
+  fireEvent.change(screen.getByLabelText('Описание и условия'),{target:{value:'Разработка платформы и внутренних сервисов компании.'}});
+  fireEvent.change(screen.getByLabelText('Зарплата от, ₽/мес'),{target:{value:'150000'}});
+  fireEvent.change(screen.getByLabelText('Зарплата до, ₽/мес'),{target:{value:'200000'}});
+  await waitFor(()=>expect(screen.getByLabelText('Компания').value).toBe('Acme'));
+  fireEvent.click(screen.getByText('Отправить предложение'));
+  await screen.findByText('Предложение отправлено.');
+  expect(posted[0]).toMatchObject({candidate_id:'u1',company_name:'Acme',salary_min:150000,salary_max:200000,contact_method:'Чат на платформе'});
+ });
+ it('shows invitation salary and terms before the candidate accepts',async()=>{
+  const user={id:'u1',email:'anna@example.org',name:'Анна',role:'candidate'};
+  global.fetch=vi.fn(async path=>{
+   if(path==='/api/auth/me')return response({user});
+   if(path==='/api/interactions/i2')return response({id:'i2',kind:'invitation',status:'pending',
+    candidate_id:'u1',employer_id:'e1',candidate_name:'Анна',company_name:'Acme',
+    vacancy_name:'Предложение о работе',description:'Работа над внутренней платформой.',
+    salary_min:150000,salary_max:200000,contact_method:'Чат на платформе',
+    chat_enabled:false,messages:[]});
+   return response({});
+  });
+  render(<AuthProvider><Conversation role="candidate" id="i2"/></AuthProvider>);
+  await screen.findByText('Работа над внутренней платформой.');
+  expect(screen.getByText(/Зарплата:.*₽\/мес/)).toBeTruthy();
+  expect(screen.getByText('Чат откроется после одобрения.')).toBeTruthy();
+  expect(screen.queryByLabelText('Сообщение')).toBeNull();
  });
 });

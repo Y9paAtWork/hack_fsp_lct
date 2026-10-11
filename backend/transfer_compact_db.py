@@ -43,6 +43,7 @@ USER_TABLES = (
     "candidate_grades",
     "skill_test_results",
     "candidate_skill_vectors",
+    "candidate_skill_grade_vectors",
     "candidate_activity",
     "candidate_activity_days",
     "candidate_activity_days_msk",

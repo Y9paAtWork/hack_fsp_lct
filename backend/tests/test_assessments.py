@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 import numpy as np
 
 from backend.app import app
-from backend.assessments import daily_public, grade_progress, grade_question, moscow_day, objective_score, retry_allowed, text_score, update_grades
+from backend.assessments import daily_public, grade_progress, grade_question, moscow_day, objective_score, retry_allowed, text_score, technology_cooldowns, update_grades
 from backend.db import connect
 from backend.ranking import catalog
 from backend.sandbox import grade_code
@@ -55,14 +55,18 @@ class AssessmentTests(unittest.TestCase):
         with connect() as c:
             self.assertEqual(c.execute('SELECT count(*) FROM candidate_verified_grades WHERE user_id=?',(self.user_id,)).fetchone()[0],0)
 
-    def test_technology_catalog_only_shows_own_grade_until_promotion(self):
+    def test_technology_catalog_starts_at_current_grade(self):
         self.set_stack('Git')
         with connect() as c:
             c.execute("UPDATE candidate_specialization_grades SET current_grade='Middle' WHERE user_id=? AND specialization='Backend'",(self.user_id,))
         items=[item for item in self.client.get('/api/tests/technologies').json()['items'] if item['technology']=='Git']
         self.assertEqual([item['grade'] for item in items],['Middle'])
-        self.assertEqual(self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Junior'}).status_code,409)
-        self.assertEqual(self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Middle'}).status_code,200)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Senior','specialization':'Frontend'}).status_code,422)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Senior','specialization':'Backend'}).status_code,409)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).status_code,409)
 
     def test_independent_specialization_grades_control_tests_and_promotion(self):
         data=self.client.get('/api/profile').json()
@@ -72,14 +76,18 @@ class AssessmentTests(unittest.TestCase):
         declared=self.client.put('/api/grades/declarations',json={'grades':{'Backend':'Middle','Frontend':'Junior'}})
         self.assertEqual(declared.status_code,200,declared.text)
         self.assertEqual(declared.json()['grades']['Backend']['current_grade'],'Middle')
-        catalog=self.client.get('/api/tests/technologies').json()
-        self.assertIsNone(catalog['grade'])
-        self.assertEqual(catalog['grades'],['Junior','Middle'])
-        self.assertEqual([item['grade'] for item in catalog['items'] if item['technology']=='Git'],['Junior','Middle'])
+        catalog=self.client.get('/api/tests/technologies?specialization=Backend').json()
+        self.assertEqual(catalog['grade'],'Middle')
+        self.assertEqual(catalog['grades'],['Middle'])
+        self.assertEqual([item['grade'] for item in catalog['items'] if item['technology']=='Git'],['Middle'])
+        frontend=self.client.get('/api/tests/technologies?specialization=Frontend').json()
+        self.assertEqual(frontend['grade'],'Junior')
+        self.assertEqual(frontend['grades'],['Junior'])
+        self.assertEqual([item['grade'] for item in frontend['items'] if item['technology']=='Git'],['Junior'])
         self.assertEqual(self.client.post('/api/tests/technologies/start',json={
-            'technology':'Git','grade':'Senior'}).status_code,409)
+            'technology':'Git','grade':'Senior','specialization':'Frontend'}).status_code,409)
         self.assertEqual(self.client.post('/api/tests/technologies/start',json={
-            'technology':'Git','grade':'Middle'}).status_code,200)
+            'technology':'Git','grade':'Senior','specialization':'Backend'}).status_code,409)
         with connect() as c:
             c.execute('INSERT INTO candidate_verified_grades VALUES(?,?,?,?,?,?)',
                       (self.user_id,'Backend','Middle','test-rule','test-bank',datetime.now(timezone.utc).isoformat()))
@@ -101,7 +109,8 @@ class AssessmentTests(unittest.TestCase):
         items=[item for item in self.client.get('/api/tests/technologies').json()['items']
                if item['technology']=='Git' and item['grade']=='Junior']
         self.assertEqual(len(items),1)
-        start=self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Junior'})
+        start=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'})
         self.assertEqual(start.status_code,200,start.text)
         attempt=start.json()
         with connect() as c:
@@ -124,7 +133,166 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(refreshed[0]['last_score'],100)
         self.assertFalse(refreshed[0]['available'])
         self.assertEqual(self.client.post('/api/tests/technologies/start',json={
-            'technology':'Git','grade':'Junior'}).status_code,409)
+            'technology':'Git','grade':'Junior','specialization':'Frontend'}).status_code,409)
+
+    def test_higher_technology_level_credits_lower_specialization_level(self):
+        data=self.client.get('/api/profile').json()
+        data['profile'].update({'selected':['Backend','Frontend'],'active':'Backend',
+                                'stacks':{'Backend':['Git'],'Frontend':['Git']}})
+        self.assertEqual(self.client.put('/api/profile',json=data).status_code,200)
+        self.assertEqual(self.client.put('/api/grades/declarations',json={
+            'grades':{'Backend':'Middle','Frontend':'Junior'}}).status_code,200)
+        before=self.client.get('/api/tests/technologies').json()
+        self.assertEqual([(s['specialization'],s['grade']) for s in before['specializations']],
+                         [('Backend','Middle'),('Frontend','Junior')])
+        started=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Middle','specialization':'Backend'})
+        self.assertEqual(started.status_code,200,started.text)
+        attempt=started.json()
+        with connect() as c:
+            answers={}
+            for question in attempt['questions']:
+                row=c.execute('SELECT question_type,correct_answers_json FROM test_questions WHERE id=?',
+                              (question['id'],)).fetchone()
+                correct=json.loads(row['correct_answers_json'])
+                answers[question['id']]=correct if row['question_type']=='multi' else correct[0]
+        with patch('backend.assessments.text_score',return_value=1.0):
+            finished=self.client.post(f"/api/tests/technologies/{attempt['attempt_id']}/submit",
+                                      json={'answers':answers})
+        self.assertEqual(finished.status_code,200,finished.text)
+        self.assertTrue(finished.json()['passed'])
+        catalog_response=self.client.get('/api/tests/technologies').json()
+        sections={section['specialization']:section for section in catalog_response['specializations']}
+        junior=next(item for item in sections['Frontend']['items']
+                    if item['technology']=='Git' and item['grade']=='Junior')
+        middle=next(item for item in sections['Backend']['items']
+                    if item['technology']=='Git' and item['grade']=='Middle')
+        self.assertTrue(junior['credited'])
+        self.assertEqual(junior['credited_by_grade'],'Middle')
+        self.assertEqual(junior['credited_score'],100)
+        self.assertFalse(junior['available'])
+        self.assertTrue(middle['credited'])
+        self.assertEqual(middle['credited_by_grade'],'Middle')
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Frontend'}).status_code,409)
+        with connect() as c:
+            self.assertEqual(c.execute('''SELECT count(*) FROM technology_level_results
+              WHERE user_id=? AND technology='Git' ''',(self.user_id,)).fetchone()[0],1)
+            progress=grade_progress(c,self.user_id)
+        for spec,level in (('Backend','Middle'),('Frontend','Junior')):
+            self.assertTrue(any(group['at_target'] for group in progress[spec]['levels'][level]['groups']
+                                if 'Git' in group['alternatives']))
+
+    def test_fifty_point_middle_result_credits_junior_vector_at_maximum(self):
+        data=self.client.get('/api/profile').json()
+        data['profile'].update({'selected':['Backend','Frontend'],'active':'Backend',
+                                'stacks':{'Backend':['Git'],'Frontend':['Git']}})
+        self.assertEqual(self.client.put('/api/profile',json=data).status_code,200)
+        self.assertEqual(self.client.put('/api/grades/declarations',json={
+            'grades':{'Backend':'Middle','Frontend':'Junior'}}).status_code,200)
+        started=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Middle','specialization':'Backend'})
+        self.assertEqual(started.status_code,200,started.text)
+        attempt=started.json()
+        answers={}
+        with connect() as c:
+            for index,question in enumerate(attempt['questions']):
+                row=c.execute('SELECT question_type,correct_answers_json FROM test_questions WHERE id=?',
+                              (question['id'],)).fetchone()
+                correct=json.loads(row['correct_answers_json'])
+                answers[question['id']]=(correct if row['question_type']=='multi' else correct[0]) if index<3 else (
+                    [] if row['question_type']=='multi' else 'incorrect')
+        with patch('backend.assessments.text_score',return_value=0.0):
+            result=self.client.post(f"/api/tests/technologies/{attempt['attempt_id']}/submit",
+                                    json={'answers':answers})
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['score'],50)
+        self.assertTrue(result.json()['passed'])
+        self.assertFalse(result.json()['next_level_available'])
+        with connect() as c:
+            index=catalog()[0].index('Git')
+            vectors={row['grade']:np.frombuffer(row['vector'],dtype='<f4')
+                     for row in c.execute('''SELECT grade,vector FROM candidate_skill_grade_vectors
+                       WHERE user_id=?''',(self.user_id,))}
+            self.assertEqual(vectors['Junior'][index],1)
+            self.assertEqual(vectors['Middle'][index],.5)
+            self.assertEqual(vectors['Senior'][index],.5)
+            self.assertEqual(set(technology_cooldowns(c,self.user_id,'Git')),
+                             {'Junior','Middle','Senior'})
+        junior=next(item for item in self.client.get('/api/tests/technologies?specialization=Frontend').json()['items']
+                    if item['technology']=='Git' and item['grade']=='Junior')
+        self.assertEqual(junior['credited_by_grade'],'Middle')
+        self.assertEqual(junior['credited_score'],100)
+
+    def test_failed_middle_offers_junior_and_locks_middle_and_senior(self):
+        self.set_stack('Git')
+        with connect() as c:
+            c.execute("UPDATE candidate_specialization_grades SET current_grade='Middle' WHERE user_id=? AND specialization='Backend'",(self.user_id,))
+        start=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Middle','specialization':'Backend'}).json()
+        answers={question['id']:[] if question['type']=='multi' else 'incorrect' for question in start['questions']}
+        with patch('backend.assessments.text_score',return_value=0.0):
+            result=self.client.post(f"/api/tests/technologies/{start['attempt_id']}/submit",
+                                    json={'answers':answers})
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['score'],0)
+        self.assertEqual(result.json()['suggested_grade'],'Junior')
+        with connect() as c:
+            self.assertEqual(set(technology_cooldowns(c,self.user_id,'Git')),{'Middle','Senior'})
+        levels=[item['grade'] for item in self.client.get('/api/tests/technologies').json()['items']
+                if item['technology']=='Git']
+        self.assertEqual(levels,['Junior','Middle'])
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Middle','specialization':'Backend'}).status_code,409)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).status_code,200)
+
+    def test_excellent_junior_unblocks_middle(self):
+        self.set_stack('Git')
+        started=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).json()
+        with connect() as c:
+            answers={question['id']:json.loads(c.execute(
+                'SELECT correct_answers_json FROM test_questions WHERE id=?',
+                (question['id'],)).fetchone()[0])[0] for question in started['questions']}
+        result=self.client.post(f"/api/tests/technologies/{started['attempt_id']}/submit",
+                                json={'answers':answers})
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertTrue(result.json()['next_level_available'])
+        self.assertEqual(result.json()['next_grade'],'Middle')
+        with connect() as c:
+            self.assertEqual(set(technology_cooldowns(c,self.user_id,'Git')),{'Junior'})
+        levels=[item['grade'] for item in self.client.get('/api/tests/technologies').json()['items']
+                if item['technology']=='Git']
+        self.assertEqual(levels,['Junior','Middle'])
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).status_code,409)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Middle','specialization':'Backend'}).status_code,200)
+
+    def test_normal_result_locks_every_grade_for_thirty_days(self):
+        self.set_stack('Git')
+        started=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).json()
+        with connect() as c:
+            answers={question['id']:json.loads(c.execute(
+                'SELECT correct_answers_json FROM test_questions WHERE id=?',
+                (question['id'],)).fetchone()[0])[0] if i<2 else 'incorrect'
+                for i,question in enumerate(started['questions'])}
+        result=self.client.post(f"/api/tests/technologies/{started['attempt_id']}/submit",
+                                json={'answers':answers})
+        self.assertEqual(result.json()['score'],67)
+        self.assertTrue(result.json()['passed'])
+        self.assertFalse(result.json()['next_level_available'])
+        with connect() as c:
+            self.assertEqual(set(technology_cooldowns(c,self.user_id,'Git')),
+                             {'Junior','Middle','Senior'})
+            completed=c.execute('SELECT completed_at FROM assessment_attempts WHERE id=?',
+                                (started['attempt_id'],)).fetchone()[0]
+            boundary=datetime.fromisoformat(completed)+timedelta(days=30)
+            self.assertEqual(set(technology_cooldowns(c,self.user_id,'Git',boundary-timedelta(microseconds=1))),
+                             {'Junior','Middle','Senior'})
+            self.assertEqual(technology_cooldowns(c,self.user_id,'Git',boundary),{})
 
     def test_grade_advance_requires_confirmation_and_preserves_initial_grade(self):
         self.set_stack('Git')
@@ -145,7 +313,8 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(catalog_response.status_code,200)
         item=next(x for x in catalog_response.json()['items'] if x['technology']=='Git' and x['grade']=='Junior')
         self.assertTrue(item['available'])
-        start=self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Junior'})
+        start=self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'})
         self.assertEqual(start.status_code,200,start.text)
         payload=start.json()
         self.assertNotIn('correct_answers',start.text)
@@ -159,7 +328,8 @@ class AssessmentTests(unittest.TestCase):
         result=self.client.post(f"/api/tests/technologies/{payload['attempt_id']}/submit",json={'answers':answers})
         self.assertEqual(result.status_code,200,result.text)
         self.assertEqual(result.json()['score'],100)
-        self.assertEqual(self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Junior'}).status_code,409)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).status_code,409)
         with connect() as c:
             names,_=catalog()
             vector=np.frombuffer(c.execute('SELECT vector FROM candidate_skill_vectors WHERE user_id=?',(self.user_id,)).fetchone()[0],dtype='<f4')
@@ -167,7 +337,8 @@ class AssessmentTests(unittest.TestCase):
             self.assertEqual(c.execute('SELECT source FROM skill_test_results WHERE user_id=? AND technology=?',(self.user_id,'Git')).fetchone()[0],'verified')
             earlier=(datetime.now(timezone.utc)-timedelta(days=30,seconds=1)).isoformat()
             c.execute('UPDATE assessment_attempts SET completed_at=? WHERE id=?',(earlier,payload['attempt_id']))
-        self.assertEqual(self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Junior'}).status_code,200)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior','specialization':'Backend'}).status_code,200)
         self.client.post('/api/auth/logout')
         self.client.__exit__(None,None,None)
         self.client=TestClient(app)

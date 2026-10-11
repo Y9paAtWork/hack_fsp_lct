@@ -201,7 +201,7 @@ def benchmark(db, vacancy_ids, out):
             dataset = {'path': str(eval_path), 'preserved_existing_labels': True}
         quality = evaluate_labels(c, eval_path)
         counts = {name: c.execute(f'SELECT count(*) FROM {name}').fetchone()[0]
-                  for name in ('candidate_skill_vectors', 'skill_test_results',
+                  for name in ('candidate_skill_vectors', 'candidate_skill_grade_vectors', 'skill_test_results',
                                'candidate_activity', 'candidate_fsp_achievements')}
     metrics = {'scoring_version': SCORING_VERSION, 'weights': WEIGHTS,
                'signals': 'skills/activity/FSP synthetic_demo; experience real Jina vectors',

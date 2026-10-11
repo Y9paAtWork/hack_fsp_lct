@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +11,7 @@ from backend.app import app
 from backend.candidate_vacancy_search import ensure_experience_vectors
 from backend.db import connect
 from backend.embedding_worker import DIMENSIONS, MODEL, REVISION
-from backend.ranking import store_vacancy_query_vector
+from backend.ranking import record_verified_skill_test, store_vacancy_query_vector
 from backend.tests.registration import candidate_payload
 
 
@@ -133,6 +134,24 @@ class CandidateVacancySearchTests(unittest.TestCase):
         with connect() as c:
             c.execute("UPDATE vacancies SET required_technologies_json='[\"Java\"]' WHERE id='a'")
         self.assertEqual(self.client.post('/api/candidate/vacancies/search',json={'specialization':'Backend'}).json()['items'],[])
+
+    def test_candidate_search_uses_the_vacancy_grade_skill_vector(self):
+        with connect() as c:
+            when=datetime.now(timezone.utc).isoformat()
+            c.execute('''INSERT INTO assessment_attempts VALUES(?,?,?,?,?,?,?,?,?,?)''',
+                      ('python-middle',self.user_id,'Python','Middle','[]','completed',60,when,when,'test-bank'))
+            c.execute('''INSERT INTO technology_level_results VALUES(?,?,?,?,?,?,?,?)''',
+                      (self.user_id,'Python','Middle',60,1,'python-middle',when,'test-bank'))
+            record_verified_skill_test(c,self.user_id,'Python',60)
+            c.execute("UPDATE candidate_specialization_grades SET current_grade='Middle' WHERE user_id=? AND specialization='Backend'",(self.user_id,))
+            c.execute("UPDATE vacancies SET grade='Middle' WHERE id='a'")
+        middle=self.client.post('/api/candidate/vacancies/search',json={'specialization':'Backend'}).json()
+        self.assertAlmostEqual(next(r for r in middle['items'] if r['id']=='a')['components']['skills'],.6,places=5)
+        with connect() as c:
+            c.execute("UPDATE candidate_specialization_grades SET current_grade='Junior' WHERE user_id=? AND specialization='Backend'",(self.user_id,))
+            c.execute("UPDATE vacancies SET grade='Junior' WHERE id='a'")
+        junior=self.client.post('/api/candidate/vacancies/search',json={'specialization':'Backend'}).json()
+        self.assertEqual(next(r for r in junior['items'] if r['id']=='a')['components']['skills'],1)
 
 
 if __name__ == '__main__':

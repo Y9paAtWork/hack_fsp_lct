@@ -10,7 +10,7 @@ import numpy as np
 from .db import ROOT, connect
 from .embedding_worker import DIMENSIONS, MODEL, REVISION, aggregate_items, run_batch
 from .index_all_vacancies import _load_encoder
-from .ranking import WEIGHTS, fsp_score, refresh_real_activity, vacancy_experience_text
+from .ranking import WEIGHTS, catalog, fsp_score, refresh_real_activity, vacancy_experience_text
 from .matching_requirements import usable_salary_range
 from .profile import shared_technologies
 
@@ -64,7 +64,7 @@ def rank_for_candidate(c, user_id, specialization='', page=1, limit=20):
         raise ValueError('Специализация не выбрана в профиле')
     specs = [specialization] if specialization else selected
     empty = {'items': [], 'total': 0, 'page': page, 'limit': limit,
-             'weights': WEIGHTS, 'scoring_version': 'candidate-vacancies-v1',
+             'weights': WEIGHTS, 'scoring_version': 'candidate-vacancies-grade-v2',
              'experience_blocks': 0, 'experience_pending': 0, 'stale_vacancies': 0}
     if not specs:
         return empty
@@ -86,8 +86,13 @@ def rank_for_candidate(c, user_id, specialization='', page=1, limit=20):
             AND iv.model=? AND iv.revision=? AND iv.task='retrieval.passage' AND iv.dimensions=?)''',
         [user_id, *specs, MODEL, REVISION, DIMENSIONS]).fetchone()[0]
 
-    verified = {r['technology']: r['score'] / 100 for r in c.execute('''SELECT technology,score
-        FROM skill_test_results WHERE user_id=? AND source='verified' ''', (user_id,))}
+    names,catalog_hash=catalog()
+    name_index={name:i for i,name in enumerate(names)}
+    grade_vectors={}
+    for row in c.execute('''SELECT grade,catalog_sha256,dimensions,vector
+      FROM candidate_skill_grade_vectors WHERE user_id=?''',(user_id,)):
+        if row['catalog_sha256']==catalog_hash and row['dimensions']==len(names):
+            grade_vectors[row['grade']]=np.frombuffer(row['vector'],dtype='<f4')
     shared_stack=set(shared_technologies(profile))
     stacks = {spec: shared_stack for spec in specs}
     grades = {r['specialization']:r['current_grade'] for r in c.execute(
@@ -138,8 +143,10 @@ def rank_for_candidate(c, user_id, specialization='', page=1, limit=20):
                     for item_id, title, kind, vector in candidates), default=None)
         experience = best[0] if best else 0.0
         requested = technologies.get(vacancy['id'], [])
-        skill = (sum(verified.get(tech, 0.5 if tech in stacks[vacancy['specialization']] else 0.0)
-                     for tech in requested) / len(requested)) if requested else 0.0
+        grade_vector=grade_vectors.get(vacancy['grade'])
+        skill=(sum(float(grade_vector[name_index[tech]])
+                   for tech in requested if grade_vector is not None and tech in name_index)
+               / len(requested)) if requested else 0.0
         components = {'experience': experience, 'skills': skill, 'activity': activity, 'fsp': fsp}
         score = sum(WEIGHTS[key] * components[key] for key in WEIGHTS)
         results.append({'id': vacancy['id'], 'vacancy_name': vacancy['vacancy_name'],

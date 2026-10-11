@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -63,6 +64,48 @@ class RankingTest(unittest.TestCase):
             self.assertEqual(values[self.names.index('Python')], 1.0)
             self.assertEqual(values[self.names.index('Scala')], 0.0)
             self.assertEqual(c.execute("SELECT source FROM skill_test_results WHERE user_id='a' AND technology='Python'").fetchone()[0], 'verified')
+
+    def test_grade_vectors_credit_lower_grade_and_ranking_uses_vacancy_grade(self):
+        populate_demo(self.db)
+        with connect(self.db) as c:
+            when=datetime.now(timezone.utc).isoformat()
+            c.execute('''INSERT INTO assessment_attempts VALUES(?,?,?,?,?,?,?,?,?,?)''',
+                      ('middle-python','a','Python','Middle','[]','completed',60,when,when,'test-bank'))
+            c.execute('''INSERT INTO technology_level_results VALUES(?,?,?,?,?,?,?,?)''',
+                      ('a','Python','Middle',60,1,'middle-python',when,'test-bank'))
+            record_verified_skill_test(c,'a','Python',60)
+            vectors={row['grade']:np.frombuffer(row['vector'],dtype='<f4')
+                     for row in c.execute("SELECT grade,vector FROM candidate_skill_grade_vectors WHERE user_id='a'")}
+            position=self.names.index('Python')
+            self.assertEqual(set(vectors),{'Junior','Middle','Senior'})
+            self.assertEqual(vectors['Junior'][position],1)
+            self.assertAlmostEqual(vectors['Middle'][position],.6,places=5)
+            self.assertTrue(.48<=vectors['Senior'][position]<=.52)
+            c.execute("UPDATE vacancies SET grade='Middle' WHERE id='v'")
+            c.execute("UPDATE candidate_grades SET grade='Middle' WHERE user_id='a'")
+            middle=rank_vacancy(c,'v')
+            self.assertAlmostEqual(next(r for r in middle if r['user_id']=='a')['components']['skills'],.6,places=5)
+            c.execute("UPDATE vacancies SET grade='Junior' WHERE id='v'")
+            c.execute("UPDATE candidate_grades SET grade='Junior' WHERE user_id='a'")
+            junior=rank_vacancy(c,'v')
+            self.assertEqual(next(r for r in junior if r['user_id']=='a')['components']['skills'],1)
+
+    def test_migration_backfills_three_vectors_and_rechecks_fifty_point_pass(self):
+        populate_demo(self.db)
+        with connect(self.db) as c:
+            when=datetime.now(timezone.utc).isoformat()
+            c.execute('''INSERT INTO assessment_attempts VALUES(?,?,?,?,?,?,?,?,?,?)''',
+                      ('legacy-middle','a','Python','Middle','[]','completed',60,when,when,'old-bank'))
+            c.execute('''INSERT INTO technology_level_results VALUES(?,?,?,?,?,?,?,?)''',
+                      ('a','Python','Middle',60,0,'legacy-middle',when,'old-bank'))
+            c.execute('DELETE FROM candidate_skill_grade_vectors')
+            c.execute('DELETE FROM schema_version WHERE version=5')
+        init_db(self.db)
+        with connect(self.db) as c:
+            self.assertEqual(c.execute('SELECT count(*) FROM candidate_skill_grade_vectors').fetchone()[0],12)
+            self.assertEqual(c.execute("SELECT passed FROM technology_level_results WHERE attempt_id='legacy-middle'").fetchone()[0],1)
+            junior=c.execute("SELECT vector FROM candidate_skill_grade_vectors WHERE user_id='a' AND grade='Junior'").fetchone()[0]
+            self.assertEqual(np.frombuffer(junior,dtype='<f4')[self.names.index('Python')],1)
 
     def test_removed_technology_is_zero_and_visit_is_real(self):
         populate_demo(self.db)

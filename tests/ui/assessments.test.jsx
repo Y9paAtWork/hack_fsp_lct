@@ -1,6 +1,6 @@
 import React from 'react';
 import {describe,it,expect,afterEach,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor,cleanup,within} from '@testing-library/react';
 import {TechnologyTests,DailyPractice,GradeProgress} from '../../src/Assessments';
 import DatabaseEmployer from '../../src/DatabaseEmployer';
 
@@ -23,7 +23,7 @@ describe('Assessment screens',()=>{
   const calls=[];
   global.fetch=vi.fn(async(path,options={})=>{
    calls.push({path,body:options.body?JSON.parse(options.body):null});
-   if(path==='/api/tests/technologies')return response({items:[{technology:'Git',grade:'Junior',questions:1,last_score:null,available:true}]});
+   if(path==='/api/tests/technologies')return response({specialization:'Backend',grade:'Junior',items:[{technology:'Git',grade:'Junior',questions:1,last_score:null,available:true}]});
    if(path==='/api/tests/technologies/start')return response({attempt_id:'a1',technology:'Git',grade:'Junior',questions:[{id:'q1',type:'single',text:'Что делает Git?',options:[{value:'A',label:'Версия A'},{value:'B',label:'Версия B'}]}]});
    if(path==='/api/tests/technologies/a1/submit')return response({score:100,technology:'Git',grade:'Junior',passed:true});
    return response({});
@@ -35,8 +35,46 @@ describe('Assessment screens',()=>{
   fireEvent.click(screen.getByText('Версия A'));
   fireEvent.click(screen.getByText('Завершить и проверить'));
   await screen.findByText('100 / 100');
-  expect(calls.find(x=>x.path==='/api/tests/technologies/start').body).toEqual({technology:'Git',grade:'Junior'});
+  expect(calls.find(x=>x.path==='/api/tests/technologies/start').body).toEqual({technology:'Git',grade:'Junior',specialization:'Backend'});
   expect(calls.find(x=>x.path==='/api/tests/technologies/a1/submit').body.answers).toEqual({q1:'A'});
+ });
+ it('groups required tests by specialization and credits a higher result in the lower grade',async()=>{
+  const calls=[];
+  global.fetch=vi.fn(async(path)=>{
+   calls.push(path);
+   if(path==='/api/tests/technologies')return response({specializations:[
+    {specialization:'Backend',grade:'Middle',items:[{technology:'Docker',grade:'Middle',questions:1,last_score:100,available:false,credited:true,credited_by_grade:'Middle',credited_score:100}]},
+    {specialization:'DevOps / SRE',grade:'Junior',items:[{technology:'Docker',grade:'Junior',questions:1,last_score:null,available:false,credited:true,credited_by_grade:'Middle',credited_score:100}]}
+   ]});
+   return response({});
+  });
+  render(<TechnologyTests/>);
+  const backend=await screen.findByRole('region',{name:'Тесты: Backend'});
+  const devops=screen.getByRole('region',{name:'Тесты: DevOps / SRE'});
+  expect(within(backend).getByText('Требуемый уровень:',{exact:false}).textContent).toContain('Middle');
+  expect(within(devops).getByText('Зачтено по результату Middle: 100 / 100')).toBeTruthy();
+  expect(within(devops).getByText('Зачтено 1 / 1')).toBeTruthy();
+  expect(within(backend).queryByText('Другие доступные уровни (1)')).toBeNull();
+  expect(calls).toEqual(['/api/tests/technologies']);
+ });
+ it('offers a lower grade after an unsuccessful technology test',async()=>{
+  const starts=[];
+  global.fetch=vi.fn(async(path,options={})=>{
+   if(path==='/api/tests/technologies')return response({specializations:[{specialization:'Backend',grade:'Middle',items:[{technology:'Git',grade:'Middle',questions:1,last_score:null,available:true}]}]});
+   if(path==='/api/tests/technologies/start'){
+    const body=JSON.parse(options.body);starts.push(body);
+    return response({attempt_id:`attempt-${starts.length}`,technology:'Git',grade:body.grade,questions:[{id:'q1',type:'single',text:'Вопрос по Git',options:[{value:'A',label:'Ответ A'}]}]});
+   }
+   if(path==='/api/tests/technologies/attempt-1/submit')return response({score:33,technology:'Git',grade:'Middle',passed:false,suggested_grade:'Junior',next_level_available:false});
+   return response({});
+  });
+  render(<TechnologyTests/>);
+  fireEvent.click(await screen.findByText('Начать'));
+  fireEvent.click(await screen.findByText('Ответ A'));
+  fireEvent.click(screen.getByText('Завершить и проверить'));
+  fireEvent.click(await screen.findByText('Пройти Junior'));
+  await waitFor(()=>expect(starts.map(x=>x.grade)).toEqual(['Middle','Junior']));
+  expect(starts[1].specialization).toBe('Backend');
  });
  it('uses the daily API and does not offer a second attempt after completion',async()=>{
   const calls=[];

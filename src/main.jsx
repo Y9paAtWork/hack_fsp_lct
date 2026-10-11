@@ -111,7 +111,7 @@ function CandidateProfile(){
  return <><div className="page-head"><h1>МОЙ ПРОФИЛЬ</h1><div className="row-actions"><Btn onClick={()=>routeTo('/candidate/edit')}>Редактировать</Btn><Btn onClick={exportProfile}>Экспорт JSON</Btn></div></div>
  {error&&<p role="alert">{error}</p>}
  <section className="panel" style={{padding:24}}><h2>{candidate.name}</h2><p>{profile.email}</p><p>FSP ID: {profile.fsp||'не указан'}</p><p>{candidate.role}</p><Chips items={candidate.stack}/></section>
- {profile.selected.map(spec=><section className="panel" key={spec} style={{padding:24,marginTop:20}}><h2>{spec}</h2><Chips items={profile.stacks[spec]||[]}/><h3>Опыт</h3>{(profile.jobs[spec]||[]).map((j,i)=><div key={i}><strong>{j.company}</strong><p>{j.role}</p><p>{j.start}–{j.end}</p><p>{j.description}</p></div>)}<h3>Проекты</h3>{(profile.ownProjects[spec]||[]).map((p,i)=><div key={i}><strong>{p.name}</strong><p>{p.description}</p><p>{p.tasks}</p></div>)}</section>)}
+ {profile.selected.map(spec=><section className="panel" key={spec} style={{padding:24,marginTop:20}}><div className="page-head"><h2>{spec}</h2><a className="btn" href={`/api/profile/resume.pdf?specialization=${encodeURIComponent(spec)}`} download={`fsp-resume-${spec.replace(/[^a-z0-9]+/gi,'-')}.pdf`}>Скачать PDF</a></div><Chips items={profile.stacks[spec]||[]}/><h3>Опыт</h3>{(profile.jobs[spec]||[]).map((j,i)=><div key={i}><strong>{j.company}</strong><p>{j.role}</p><p>{j.start}–{j.end}</p><p>{j.description}</p></div>)}<h3>Проекты</h3>{(profile.ownProjects[spec]||[]).map((p,i)=><div key={i}><strong>{p.name}</strong><p>{p.description}</p><p>{p.tasks}</p></div>)}</section>)}
  <GradeProgress/><RealActivityCalendar/>
  </>;
 }

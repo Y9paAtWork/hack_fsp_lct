@@ -9,7 +9,7 @@ import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHashError, VerificationError
 from .db import connect, init_db, now
@@ -17,8 +17,9 @@ from .profile import empty_profile, sanitize, sync_resume
 from .import_data import dump, seed_catalog
 from .ranking import WEIGHTS, SCORING_VERSION, catalog, rank_vacancy, rebuild_skill_vector, record_visit
 from .assessments import seed_daily, seed_technology_questions, catalog_tests, start_technology, submit_technology, grade_progress, update_grades, daily_public, submit_daily, activity_calendar, user_test_grade, current_grade_progress, advance_test_grade, selected_specializations, technology_test_grades, matrix
-from .marketplace import employer_overview, my_vacancies, public_vacancies, owned_vacancy, list_interactions, get_interaction, create_interaction, change_interaction, add_message
+from .marketplace import employer_overview, my_vacancies, public_vacancies, owned_vacancy, list_interactions, get_interaction, interaction_public, create_interaction, create_invitation, change_interaction, add_message
 from .candidate_vacancy_search import ensure_experience_vectors, rank_for_candidate
+from .resume_pdf import build_resume_pdf
 
 hasher=PasswordHasher(time_cost=2,memory_cost=19456,parallelism=1)
 COOKIE='fsp_session'
@@ -84,7 +85,23 @@ class VacancyState(BaseModel):
     visibility:str
     status:str
 class InvitationPayload(BaseModel):
-    candidate_id:str
+    candidate_id:str=Field(min_length=1)
+    company_name:str=Field(min_length=1,max_length=200)
+    description:str=Field(min_length=20,max_length=20000)
+    salary_min:int=Field(ge=1000,le=10000000)
+    salary_max:int=Field(ge=1000,le=10000000)
+    contact_method:str=Field(min_length=3,max_length=300)
+    title:str=Field(default='',max_length=200)
+
+    @model_validator(mode='after')
+    def validate_offer(self):
+        if self.salary_max<self.salary_min:
+            raise ValueError('Зарплата «до» должна быть не меньше зарплаты «от»')
+        if not self.company_name.strip() or len(self.description.strip())<20 or len(self.contact_method.strip())<3:
+            raise ValueError('Заполните компанию, описание предложения и способ связи')
+        if self.title and len(self.title.strip())<3:
+            raise ValueError('Название предложения должно содержать не менее трёх символов')
+        return self
 class DecisionPayload(BaseModel):
     status:str
 class MessagePayload(BaseModel):
@@ -92,6 +109,7 @@ class MessagePayload(BaseModel):
 class TechnologyStart(BaseModel):
     technology:str
     grade:str
+    specialization:str
 class GradeDeclarations(BaseModel):
     grades:dict[str,str]
 class AnswersPayload(BaseModel):
@@ -235,6 +253,24 @@ def my_items(user=Depends(candidate)):
         EXISTS(SELECT 1 FROM item_vectors iv WHERE iv.item_id=w.id) vector_ready
         FROM work_items w WHERE user_id=? ORDER BY ordinal''',(user['id'],)).fetchall()
     return {'items':[dict(r) for r in rows]}
+
+@app.get('/api/profile/resume.pdf')
+def download_resume(specialization:str=Query(min_length=1),user=Depends(candidate)):
+    with connect() as c:
+        row=c.execute('SELECT profile_json FROM candidate_profiles WHERE user_id=?',(user['id'],)).fetchone()
+        if not row:raise HTTPException(404,'Профиль не найден')
+        profile=json.loads(row[0])
+        if specialization not in profile.get('selected',[]):
+            raise HTTPException(404,'Специализация не найдена в профиле')
+        grades={r['specialization']:dict(r) for r in c.execute('''SELECT sg.specialization,sg.declared_grade,
+          sg.current_grade,vg.grade verified_grade FROM candidate_specialization_grades sg
+          LEFT JOIN candidate_verified_grades vg ON vg.user_id=sg.user_id AND vg.specialization=sg.specialization
+          WHERE sg.user_id=?''',(user['id'],))}
+        grades.setdefault(specialization,{})['current_grade']=user_test_grade(c,user['id'],specialization)
+    pdf=build_resume_pdf(profile,grades,specialization)
+    filename='fsp-resume-'+(re.sub(r'[^a-z0-9]+','-',specialization.lower()).strip('-') or 'profile')+'.pdf'
+    return Response(content=pdf,media_type='application/pdf',headers={
+        'Content-Disposition':f'attachment; filename="{filename}"','Cache-Control':'private, no-store'})
 @app.get('/api/employer/profile')
 def employer_profile(user=Depends(employer)):
     with connect() as c:r=c.execute('SELECT company_name,about,website FROM employer_profiles WHERE user_id=?',(user['id'],)).fetchone()
@@ -350,8 +386,31 @@ def apply_vacancy(vacancy_id:str,user=Depends(candidate)):
 @app.post('/api/vacancies/{vacancy_id}/invite',status_code=201)
 def invite_candidate(vacancy_id:str,payload:InvitationPayload,user=Depends(employer)):
     with connect() as c:
-        interaction_id=create_interaction(c,vacancy_id,payload.candidate_id,'invitation',user['id'])
+        interaction_id=create_invitation(c,payload.candidate_id,user['id'],payload.company_name,
+            payload.description,payload.salary_min,payload.salary_max,payload.contact_method,
+            payload.title,vacancy_id)
     return {'id':interaction_id,'status':'pending'}
+
+@app.post('/api/invitations',status_code=201)
+def direct_invitation(payload:InvitationPayload,user=Depends(employer)):
+    with connect() as c:
+        invitation_id=create_invitation(c,payload.candidate_id,user['id'],payload.company_name,
+            payload.description,payload.salary_min,payload.salary_max,payload.contact_method,payload.title)
+    return {'id':invitation_id,'status':'pending'}
+
+@app.get('/api/employer/candidates/search')
+def search_registered_candidates(q:str=Query(min_length=2,max_length=100),user=Depends(employer)):
+    query=q.strip()
+    if len(query)<2:raise HTTPException(422,'Введите хотя бы два символа для поиска')
+    term='%' + query.replace('\\','\\\\').replace('%','\\%').replace('_','\\_') + '%'
+    with connect() as c:
+        rows=c.execute('''SELECT u.id,u.name,r.position_name,r.specialization,r.all_technologies_json
+          FROM users u JOIN resumes r ON r.user_id=u.id
+          WHERE u.role='candidate' AND u.origin='registration'
+          AND (u.name LIKE ? ESCAPE '\\' OR r.position_name LIKE ? ESCAPE '\\'
+               OR r.all_technologies_json LIKE ? ESCAPE '\\')
+          ORDER BY u.name,u.id LIMIT 20''',(term,term,term)).fetchall()
+    return {'items':[dict(row) for row in rows]}
 
 @app.get('/api/interactions')
 def interactions(vacancy_id:str='',user=Depends(current_user)):
@@ -361,12 +420,7 @@ def interactions(vacancy_id:str='',user=Depends(current_user)):
 def interaction_detail(interaction_id:str,user=Depends(current_user)):
     with connect() as c:
         row=get_interaction(c,interaction_id,user)
-        result=dict(row)
-        result['messages']=[dict(m) for m in c.execute('''SELECT m.id,m.sender_id,u.name sender_name,m.body,m.created_at
-            FROM hiring_messages m JOIN users u ON u.id=m.sender_id WHERE m.interaction_id=?
-            ORDER BY m.created_at,m.id''',(interaction_id,))]
-        result['chat_enabled']=row['status']=='approved' and row['employer_id'] is not None
-    return result
+        return interaction_public(c,row)
 
 @app.post('/api/interactions/{interaction_id}/decision')
 def decide_interaction(interaction_id:str,payload:DecisionPayload,user=Depends(current_user)):
@@ -395,16 +449,24 @@ def candidate_details(resume_id:str,user=Depends(employer)):
     return {'resume':dict(r),'items':[dict(i) for i in items]}
 
 @app.get('/api/tests/technologies')
-def technology_catalog(user=Depends(candidate)):
+def technology_catalog(specialization:str='',user=Depends(candidate)):
     with connect() as c:
-        items=catalog_tests(c,user['id'])
-        grades=sorted(technology_test_grades(c,user['id']),key=('Junior','Middle','Senior').index)
-        return {'grade':grades[0] if len(grades)==1 else None,'grades':grades,'items':items}
+        selected=selected_specializations(c,user['id'])
+        spec=specialization or (selected[0] if selected else '')
+        if not spec:return {'specialization':None,'grade':None,'grades':[],'items':[],'specializations':[]}
+        if specialization and specialization not in selected:
+            technology_test_grades(c,user['id'],specialization)
+        sections=[{'specialization':name,'grade':user_test_grade(c,user['id'],name),
+                   'grades':technology_test_grades(c,user['id'],name),
+                   'items':catalog_tests(c,user['id'],name)}
+                  for name in ([spec] if specialization else selected)]
+        current=next(section for section in sections if section['specialization']==spec)
+        return {**current,'specializations':sections}
 
 @app.post('/api/tests/technologies/start')
 def technology_start(payload:TechnologyStart,user=Depends(candidate)):
     with connect() as c:
-        return start_technology(c,user['id'],payload.technology,payload.grade)
+        return start_technology(c,user['id'],payload.technology,payload.grade,payload.specialization)
 
 @app.get('/api/grades/declarations')
 def grade_declarations(user=Depends(candidate)):

@@ -24,7 +24,8 @@ from .profile import shared_technologies
 
 CATALOG_PATH = Path(__file__).with_name('technology_stack_FINAL.csv')
 WEIGHTS = {'experience': 0.70, 'skills': 0.25, 'activity': 0.025, 'fsp': 0.025}
-SCORING_VERSION = 'demo-four-signal-v2'
+SCORING_VERSION = 'demo-four-signal-grade-v3'
+SKILL_GRADES = ('Junior', 'Middle', 'Senior')
 
 
 def catalog():
@@ -99,10 +100,10 @@ def ensure_catalog(c, names):
 def rebuild_skill_vector(c, user_id, names, catalog_hash):
     index = {name: i for i, name in enumerate(names)}
     values = np.zeros(len(names), dtype='<f4')
-    rows = c.execute('''SELECT rt.technology,tr.score,tr.source FROM resumes r
+    rows = list(c.execute('''SELECT rt.technology,tr.score,tr.source FROM resumes r
         JOIN resume_technologies rt ON rt.resume_id=r.id
         JOIN skill_test_results tr ON tr.user_id=r.user_id AND tr.technology=rt.technology
-        WHERE r.user_id=?''', (user_id,))
+        WHERE r.user_id=?''', (user_id,)))
     sources = set()
     for technology, score, source in rows:
         if technology in index:
@@ -114,6 +115,49 @@ def rebuild_skill_vector(c, user_id, names, catalog_hash):
       dimensions=excluded.dimensions,vector=excluded.vector,source=excluded.source,
       updated_at=excluded.updated_at''',
       (user_id, catalog_hash, len(names), values.tobytes(), vector_source, now()))
+    level_results = list(c.execute('''SELECT technology,grade,best_score,passed
+      FROM technology_level_results WHERE user_id=?''',(user_id,)))
+    owned_technologies={row[0] for row in c.execute('''SELECT rt.technology FROM resumes r
+      JOIN resume_technologies rt ON rt.resume_id=r.id WHERE r.user_id=?''',(user_id,))}
+    result_sources={row[0]:row[2] for row in rows}
+    graded_technologies = {row['technology'] for row in level_results}
+    baseline = np.zeros(len(names), dtype='<f4')
+    for technology in owned_technologies:
+        if technology in index:
+            baseline[index[technology]]=0.5  # Neutral value until a graded attempt exists.
+    for technology, score, source in rows:
+        if technology in index and (source != 'verified' or technology not in graded_technologies):
+            baseline[index[technology]] = score / 100
+    grade_values = {grade:baseline.copy() for grade in SKILL_GRADES}
+    for result in level_results:
+        position=index.get(result['technology'])
+        if position is None or result['technology'] not in owned_technologies:
+            continue
+        level=SKILL_GRADES.index(result['grade'])
+        grade_values[result['grade']][position] = max(
+            grade_values[result['grade']][position], result['best_score']/100)
+        if result['passed']:
+            for lower in SKILL_GRADES[:level]:
+                grade_values[lower][position]=1.0
+    grade_sources={grade:set() for grade in SKILL_GRADES}
+    for technology in owned_technologies:
+        results=[row for row in level_results if row['technology']==technology]
+        for grade in SKILL_GRADES:
+            credited=any(row['grade']==grade or
+                         (row['passed'] and SKILL_GRADES.index(row['grade'])>SKILL_GRADES.index(grade))
+                         for row in results)
+            source='verified' if credited else (
+                result_sources.get(technology,'synthetic_demo') if not results else 'synthetic_demo')
+            grade_sources[grade].add(source)
+    c.executemany('''INSERT INTO candidate_skill_grade_vectors
+      (user_id,grade,catalog_sha256,dimensions,vector,source,updated_at)
+      VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,grade) DO UPDATE SET
+      catalog_sha256=excluded.catalog_sha256,dimensions=excluded.dimensions,
+      vector=excluded.vector,source=excluded.source,updated_at=excluded.updated_at''',
+      [(user_id,grade,catalog_hash,len(names),grade_values[grade].tobytes(),
+        next(iter(grade_sources[grade])) if len(grade_sources[grade])==1 else
+        ('mixed' if grade_sources[grade] else 'none'),now())
+       for grade in SKILL_GRADES])
 
 
 def record_verified_skill_test(c, user_id, technology, score):
@@ -196,8 +240,19 @@ def populate_demo(db=None):
                 dimensions=excluded.dimensions,vector=excluded.vector,source=excluded.source,
                 updated_at=excluded.updated_at''',
                 (user_id, catalog_hash, len(names), values.tobytes(), vector_source, now()))
+            c.executemany('''INSERT INTO candidate_skill_grade_vectors
+                (user_id,grade,catalog_sha256,dimensions,vector,source,updated_at)
+                VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,grade) DO UPDATE SET
+                catalog_sha256=excluded.catalog_sha256,dimensions=excluded.dimensions,
+                vector=excluded.vector,source=excluded.source,updated_at=excluded.updated_at''',
+                [(user_id,grade,catalog_hash,len(names),values.tobytes(),vector_source,now())
+                 for grade in SKILL_GRADES])
             if n % 1000 == 0:
                 c.commit()
+        # The imported demo has no graded attempts. Preserve actual grade results
+        # for any registered user when this seeder is rerun.
+        for (user_id,) in c.execute('''SELECT DISTINCT a.user_id FROM technology_level_results a''').fetchall():
+            rebuild_skill_vector(c,user_id,names,catalog_hash)
     return {**count, 'dimensions': len(names), 'catalog_sha256': catalog_hash,
             'provenance': 'synthetic_demo; not measured test/activity/FSP results'}
 
@@ -287,7 +342,7 @@ def rank_vacancy(c, vacancy_id, limit=20, candidate_ids=None, weights=None, veri
          CASE WHEN u.origin='registration' THEN sg.current_grade ELSE cg.grade END candidate_grade,
          cp.profile_json
          FROM resumes r JOIN users u ON u.id=r.user_id
-         LEFT JOIN candidate_skill_vectors sv ON sv.user_id=r.user_id
+         LEFT JOIN candidate_skill_grade_vectors sv ON sv.user_id=r.user_id AND sv.grade=?
          LEFT JOIN candidate_activity a ON a.user_id=r.user_id
          LEFT JOIN candidate_verified_grades vg ON vg.user_id=r.user_id AND vg.specialization=?
          LEFT JOIN candidate_grades cg ON cg.user_id=r.user_id
@@ -296,7 +351,7 @@ def rank_vacancy(c, vacancy_id, limit=20, candidate_ids=None, weights=None, veri
          WHERE (r.specialization=? OR (u.origin='registration' AND EXISTS(
            SELECT 1 FROM json_each(r.specializations_json) WHERE value=?)))
          AND (CASE WHEN u.origin='registration' THEN sg.current_grade ELSE cg.grade END)=?'''
-    params = [vacancy['specialization'],vacancy['specialization'],vacancy['specialization'],vacancy['specialization'],vacancy['grade']]
+    params = [vacancy['grade'],vacancy['specialization'],vacancy['specialization'],vacancy['specialization'],vacancy['specialization'],vacancy['grade']]
     if verified_only:sql += ' AND vg.grade IS NOT NULL'
     if candidate_ids is not None:
         if not candidate_ids:

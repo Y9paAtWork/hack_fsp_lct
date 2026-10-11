@@ -37,7 +37,7 @@ LEGACY_KEYS = {
 }
 NEW_TABLES = (
     'candidate_grade_estimates', 'candidate_grades', 'skill_test_results',
-    'candidate_skill_vectors', 'candidate_activity', 'candidate_activity_days',
+    'candidate_skill_vectors', 'candidate_skill_grade_vectors', 'candidate_activity', 'candidate_activity_days',
     'candidate_activity_days_msk', 'candidate_daily_tests',
     'candidate_fsp_achievements', 'candidate_initial_grades',
     'candidate_test_grades', 'candidate_specialization_grades',

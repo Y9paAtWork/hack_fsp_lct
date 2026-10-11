@@ -157,6 +157,17 @@ CREATE TABLE IF NOT EXISTS candidate_skill_vectors(
  updated_at TEXT NOT NULL,
  CHECK(length(vector)=dimensions*4)
 );
+CREATE TABLE IF NOT EXISTS candidate_skill_grade_vectors(
+ user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ grade TEXT NOT NULL CHECK(grade IN ('Junior','Middle','Senior')),
+ catalog_sha256 TEXT NOT NULL,
+ dimensions INTEGER NOT NULL CHECK(dimensions>0),
+ vector BLOB NOT NULL,
+ source TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ PRIMARY KEY(user_id,grade),
+ CHECK(length(vector)=dimensions*4)
+);
 CREATE TABLE IF NOT EXISTS candidate_activity(
  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
  active_days_30 INTEGER NOT NULL CHECK(active_days_30 BETWEEN 0 AND 30),
@@ -274,3 +285,32 @@ CREATE TABLE IF NOT EXISTS hiring_messages(
  created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_hiring_messages ON hiring_messages(interaction_id,created_at);
+CREATE TABLE IF NOT EXISTS hiring_invitations(
+ id TEXT PRIMARY KEY,
+ vacancy_id TEXT REFERENCES vacancies(id) ON DELETE SET NULL,
+ candidate_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ employer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ title TEXT NOT NULL CHECK(length(trim(title)) BETWEEN 3 AND 200),
+ company_name TEXT NOT NULL CHECK(length(trim(company_name)) BETWEEN 1 AND 200),
+ description TEXT NOT NULL CHECK(length(trim(description)) BETWEEN 20 AND 20000),
+ salary_min INTEGER NOT NULL CHECK(salary_min BETWEEN 1000 AND 10000000),
+ salary_max INTEGER NOT NULL CHECK(salary_max BETWEEN salary_min AND 10000000),
+ currency TEXT NOT NULL DEFAULT 'RUB' CHECK(currency='RUB'),
+ contact_method TEXT NOT NULL CHECK(length(trim(contact_method)) BETWEEN 3 AND 300),
+ status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_invitation_candidate ON hiring_invitations(candidate_id,updated_at);
+CREATE INDEX IF NOT EXISTS ix_invitation_employer ON hiring_invitations(employer_id,updated_at);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_invitation_pending_vacancy
+ ON hiring_invitations(vacancy_id,candidate_id) WHERE status='pending' AND vacancy_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_invitation_pending_direct
+ ON hiring_invitations(employer_id,candidate_id) WHERE status='pending' AND vacancy_id IS NULL;
+CREATE TABLE IF NOT EXISTS hiring_invitation_messages(
+ id TEXT PRIMARY KEY,
+ invitation_id TEXT NOT NULL REFERENCES hiring_invitations(id) ON DELETE CASCADE,
+ sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 5000),
+ created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_invitation_messages ON hiring_invitation_messages(invitation_id,created_at);
