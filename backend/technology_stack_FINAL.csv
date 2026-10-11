@@ -1,0 +1,203 @@
+﻿technology,category,test_required,mentions_resumes,mentions_vacancies,mentions_total,source
+Scala,Backend; Data Engineering,0,35,373,408,dataset
+SQL,Backend; Data Engineering; Data Analytics; System Analysis; Database,1,2646,6337,8983,dataset
+Go,Backend; DevOps / SRE; Software Engineering,1,237,1213,1450,dataset
+Git,Backend; Frontend; Fullstack; Mobile; ML / AI; Data Science; Data Engineering; DevOps / SRE; QA; Software Engineering,1,1382,5216,6598,dataset
+PHP,Backend; Fullstack,1,1331,2032,3363,dataset
+C#,Backend; Fullstack; Software Engineering,1,1113,1903,3016,dataset
+Python,Backend; ML / AI; Data Science; Data Engineering; Data Analytics; QA; DevOps / SRE,1,2008,4464,6472,dataset
+Kotlin,Backend; Mobile,1,211,1247,1458,dataset
+Gradle,Backend; Mobile; Software Engineering,0,109,443,552,dataset
+Java,Backend; Mobile; Software Engineering; Data Engineering,1,1224,4019,5243,dataset
+.NET,Backend; Software Engineering,1,0,0,0,added_manually
+ASP.NET Core,Backend; Software Engineering,1,0,0,0,added_manually
+Celery,Backend; Software Engineering,0,105,153,258,dataset
+Django,Backend; Software Engineering,1,403,454,857,dataset
+Entity Framework,Backend; Software Engineering,0,97,150,247,dataset
+Express.js,Backend; Software Engineering,0,0,0,0,added_manually
+FastAPI,Backend; Software Engineering,1,263,170,433,dataset
+Flask,Backend; Software Engineering,0,162,267,429,dataset
+Hibernate,Backend; Software Engineering,0,222,457,679,dataset
+Laravel,Backend; Software Engineering,1,287,576,863,dataset
+Maven,Backend; Software Engineering,0,234,713,947,dataset
+NestJS,Backend; Software Engineering,1,61,56,117,dataset
+Node.js,Backend; Software Engineering,1,447,1142,1589,dataset
+Ruby,Backend; Software Engineering,0,58,317,375,dataset
+Spring,Backend; Software Engineering,1,220,923,1143,dataset
+Spring Boot,Backend; Software Engineering,1,313,622,935,dataset
+SQLAlchemy,Backend; Software Engineering,0,121,81,202,dataset
+Symfony,Backend; Software Engineering,0,91,433,524,dataset
+Rust,Backend; System / Network; Software Engineering,0,28,70,98,dataset
+Burp Suite,Cybersecurity,0,2,10,12,dataset
+CryptoPro,Cybersecurity,0,52,18,70,dataset
+DLP,Cybersecurity,0,39,145,184,dataset
+IDS/IPS,Cybersecurity,0,0,0,0,added_manually
+Kali Linux,Cybersecurity,0,12,8,20,dataset
+Kaspersky Security Center,Cybersecurity,0,91,22,113,dataset
+Metasploit,Cybersecurity,0,2,8,10,dataset
+Nmap,Cybersecurity,0,11,18,29,dataset
+OWASP,Cybersecurity,0,8,35,43,dataset
+SIEM,Cybersecurity,0,35,149,184,dataset
+Suricata,Cybersecurity,0,5,4,9,dataset
+VipNet,Cybersecurity,0,302,75,377,dataset
+WAF,Cybersecurity,0,15,81,96,dataset
+Wazuh,Cybersecurity,0,5,2,7,dataset
+Wireshark,Cybersecurity,0,45,71,116,dataset
+DAX,Data Analytics,0,30,66,96,dataset
+Excel,Data Analytics,0,983,419,1402,dataset
+NumPy,Data Analytics,1,166,0,166,dataset
+pandas,Data Analytics,1,0,318,318,dataset
+Power BI,Data Analytics,1,195,316,511,dataset
+Power Query,Data Analytics,0,51,42,93,dataset
+Qlik Sense,Data Analytics,0,9,72,81,dataset
+Tableau,Data Analytics,1,45,242,287,dataset
+Airflow,Data Engineering,1,115,387,502,dataset
+Apache Iceberg,Data Engineering,0,1,2,3,dataset
+dbt,Data Engineering,0,11,0,11,dataset
+Flink,Data Engineering,0,1,50,51,dataset
+Hadoop,Data Engineering,0,45,630,675,dataset
+Hive,Data Engineering,0,21,279,300,dataset
+Kafka,Data Engineering,1,667,2015,2682,dataset
+NiFi,Data Engineering,0,8,76,84,dataset
+RabbitMQ,Data Engineering,0,400,1425,1825,dataset
+Spark,Data Engineering,1,39,544,583,dataset
+Trino,Data Engineering,0,8,5,13,dataset
+R,Data Science; Data Analytics,0,106,206,312,dataset
+Cassandra,Database; Backend; Data Engineering,0,21,261,282,dataset
+ClickHouse,Database; Backend; Data Engineering,1,128,408,536,dataset
+Elasticsearch,Database; Backend; Data Engineering,0,156,742,898,dataset
+Greenplum,Database; Backend; Data Engineering,0,39,197,236,dataset
+MariaDB,Database; Backend; Data Engineering,0,65,99,164,dataset
+MongoDB,Database; Backend; Data Engineering,1,340,1180,1520,dataset
+MS SQL Server,Database; Backend; Data Engineering,1,1567,2115,3682,dataset
+MySQL,Database; Backend; Data Engineering,1,1089,1619,2708,dataset
+OpenSearch,Database; Backend; Data Engineering,0,30,2,32,dataset
+Oracle,Database; Backend; Data Engineering,1,831,1540,2371,dataset
+PostgreSQL,Database; Backend; Data Engineering,1,2434,4431,6865,dataset
+Redis,Database; Backend; Data Engineering,1,500,1604,2104,dataset
+SQLite,Database; Backend; Data Engineering,0,207,93,300,dataset
+Ansible,DevOps / SRE,1,211,1208,1419,dataset
+Argo CD,DevOps / SRE,0,6,5,11,dataset
+AWS,DevOps / SRE,1,85,764,849,dataset
+Azure,DevOps / SRE,0,51,377,428,dataset
+Docker,DevOps / SRE,1,1331,3830,5161,dataset
+Docker Compose,DevOps / SRE,0,149,94,243,dataset
+ELK Stack,DevOps / SRE,0,19,0,19,dataset
+GCP,DevOps / SRE,0,14,166,180,dataset
+GitHub Actions,DevOps / SRE,0,89,0,89,dataset
+GitLab CI/CD,DevOps / SRE,0,0,317,317,dataset
+Grafana,DevOps / SRE,0,513,987,1500,dataset
+Helm,DevOps / SRE,0,50,223,273,dataset
+Jenkins,DevOps / SRE,1,351,1608,1959,dataset
+Kubernetes,DevOps / SRE,1,379,2477,2856,dataset
+Linux,DevOps / SRE,1,2090,4738,6828,dataset
+Nginx,DevOps / SRE,0,472,1000,1472,dataset
+OpenShift,DevOps / SRE,0,121,722,843,dataset
+OpenTelemetry,DevOps / SRE,0,13,7,20,dataset
+Prometheus,DevOps / SRE,0,261,924,1185,dataset
+Terraform,DevOps / SRE,1,75,382,457,dataset
+Vault,DevOps / SRE,0,28,62,90,dataset
+Yandex Cloud,DevOps / SRE,0,50,29,79,dataset
+Bash,DevOps / SRE; System / Network,0,406,0,406,dataset
+PowerShell,DevOps / SRE; System / Network,0,212,423,635,dataset
+npm,Frontend; Backend; Fullstack,0,70,177,247,dataset
+JavaScript,Frontend; Backend; Fullstack; Mobile,1,1928,4116,6044,dataset
+TypeScript,Frontend; Backend; Fullstack; Mobile,1,817,1768,2585,dataset
+Angular,Frontend; Fullstack,1,252,904,1156,dataset
+Bootstrap,Frontend; Fullstack,0,268,243,511,dataset
+CSS,Frontend; Fullstack,0,1249,2402,3651,dataset
+HTML,Frontend; Fullstack,0,1513,2531,4044,dataset
+Material UI,Frontend; Fullstack,0,56,25,81,dataset
+Next.js,Frontend; Fullstack,0,0,0,0,added_manually
+Nuxt.js,Frontend; Fullstack,0,0,0,0,added_manually
+React,Frontend; Fullstack,1,1088,2178,3266,dataset
+Redux,Frontend; Fullstack,0,331,751,1082,dataset
+SCSS,Frontend; Fullstack,0,319,318,637,dataset
+Svelte,Frontend; Fullstack,0,13,31,44,dataset
+Tailwind CSS,Frontend; Fullstack,0,70,2,72,dataset
+Vite,Frontend; Fullstack,0,192,6,198,dataset
+Vue.js,Frontend; Fullstack,1,294,612,906,dataset
+Webpack,Frontend; Fullstack,0,292,705,997,dataset
+Figma,Frontend; Mobile,0,655,374,1029,dataset
+Audio / Speech,ML / AI; Data Science,0,0,0,0,added_manually
+CatBoost,ML / AI; Data Science,0,29,0,29,dataset
+Computer Vision,ML / AI; Data Science,1,14,53,67,dataset
+Deep Learning,ML / AI; Data Science,1,0,32,32,dataset
+Generative AI / LLM,ML / AI; Data Science,1,0,0,0,added_manually
+Hugging Face,ML / AI; Data Science,0,4,1,5,dataset
+Machine Learning,ML / AI; Data Science,1,6,20,26,dataset
+MLflow,ML / AI; Data Science,0,8,0,8,dataset
+MLOps,ML / AI; Data Science,0,9,27,36,dataset
+NLP,ML / AI; Data Science,1,37,128,165,dataset
+OpenCV,ML / AI; Data Science,0,76,89,165,dataset
+PyTorch,ML / AI; Data Science,1,47,192,239,dataset
+RecSys,ML / AI; Data Science,1,2,2,4,dataset
+scikit-learn,ML / AI; Data Science,1,37,93,130,dataset
+Search / Retrieval,ML / AI; Data Science,0,0,0,0,added_manually
+TensorFlow,ML / AI; Data Science,1,48,182,230,dataset
+Time Series,ML / AI; Data Science,0,3,0,3,dataset
+XGBoost,ML / AI; Data Science,0,17,0,17,dataset
+Android,Mobile,0,575,1491,2066,dataset
+Android SDK,Mobile,0,23,203,226,dataset
+Dart,Mobile,0,32,62,94,dataset
+Flutter,Mobile,1,62,97,159,dataset
+iOS,Mobile,0,382,1379,1761,dataset
+Jetpack Compose,Mobile,0,35,16,51,dataset
+React Native,Mobile,0,53,193,246,dataset
+Swift,Mobile,1,77,636,713,dataset
+SwiftUI,Mobile,0,40,55,95,dataset
+Allure,QA,0,68,150,218,dataset
+Appium,QA,0,10,106,116,dataset
+Cypress,QA,1,54,108,162,dataset
+Jest,QA,0,191,230,421,dataset
+JMeter,QA,0,72,162,234,dataset
+JUnit,QA,1,256,491,747,dataset
+Playwright,QA,1,94,21,115,dataset
+Postman,QA,0,746,634,1380,dataset
+pytest,QA,1,207,182,389,dataset
+Selenium,QA,1,190,511,701,dataset
+SoapUI,QA,0,70,199,269,dataset
+TestRail,QA,0,65,168,233,dataset
+Bitbucket,Software Engineering; DevOps / SRE,0,132,604,736,dataset
+GitHub,Software Engineering; DevOps / SRE,0,212,369,581,dataset
+GitLab,Software Engineering; DevOps / SRE,0,680,1370,2050,dataset
+C++,Software Engineering; ML / AI,1,960,2064,3024,dataset
+1C,Software Engineering; Other IT,1,3921,2163,6084,dataset
+1C-Bitrix,Software Engineering; Other IT,0,0,0,0,added_manually
+C,Software Engineering; System / Network,1,335,616,951,dataset
+Active Directory,System / Network,0,1483,881,2364,dataset
+BGP,System / Network,0,28,125,153,dataset
+Cisco IOS,System / Network,0,2,9,11,dataset
+Debian,System / Network,0,337,288,625,dataset
+DHCP,System / Network,0,710,698,1408,dataset
+DNS,System / Network,0,744,874,1618,dataset
+Hyper-V,System / Network,0,0,0,0,added_manually
+MikroTik RouterOS,System / Network,0,0,2,2,dataset
+OSPF,System / Network,0,33,114,147,dataset
+Proxmox,System / Network,0,199,105,304,dataset
+RHEL,System / Network,0,44,171,215,dataset
+TCP/IP,System / Network,0,0,0,0,added_manually
+Ubuntu,System / Network,0,525,376,901,dataset
+VLAN,System / Network,0,179,214,393,dataset
+VMware,System / Network,0,375,489,864,dataset
+VMware ESXi,System / Network,0,120,44,164,dataset
+VPN,System / Network,0,619,490,1109,dataset
+Windows,System / Network,0,2637,2245,4882,dataset
+Windows Server,System / Network,0,948,472,1420,dataset
+Zabbix,System / Network,0,502,877,1379,dataset
+BPMN,System Analysis,0,350,581,931,dataset
+C4 Model,System Analysis,0,2,3,5,dataset
+GraphQL,System Analysis,0,169,332,501,dataset
+gRPC,System Analysis,0,144,350,494,dataset
+JSON,System Analysis,0,606,1346,1952,dataset
+OpenAPI,System Analysis,0,201,144,345,dataset
+PlantUML,System Analysis,0,67,16,83,dataset
+REST API,System Analysis,0,1268,1494,2762,dataset
+SOAP,System Analysis,0,269,1271,1540,dataset
+Swagger,System Analysis,0,600,342,942,dataset
+UML,System Analysis,0,320,675,995,dataset
+WebSocket,System Analysis,0,217,355,572,dataset
+XML,System Analysis,0,594,1305,1899,dataset
+Bitrix24,System Analysis; Other IT,0,166,65,231,dataset
+Confluence,System Analysis; QA; Software Engineering,0,525,1388,1913,dataset
+Jira,System Analysis; QA; Software Engineering,0,1254,2828,4082,dataset

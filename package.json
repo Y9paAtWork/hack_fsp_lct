@@ -1,0 +1,26 @@
+{
+  "name": "fsp-career-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.js",
+    "backend": "python3 -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend",
+    "test:backend": "python3 -m unittest discover -s backend/tests -v",
+    "test:ui": "vitest run --config vitest.config.js"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.10"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.9"
+  }
+}

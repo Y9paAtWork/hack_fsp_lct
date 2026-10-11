@@ -1,0 +1,10 @@
+import React,{useState} from 'react';
+import {useAuth} from './AuthContext';
+
+const route=path=>{location.hash=path;};
+export default function AuthForm(){
+ const {login}=useAuth();
+ const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const submit=async event=>{event.preventDefault();setBusy(true);setError('');try{const user=await login({email,password});route(`/${user.role}/home`)}catch(e){setError(e.message)}finally{setBusy(false)}};
+ return <><header className="site-header"><button className="logo" onClick={()=>route('/')} aria-label="На главную"><img src="/brand/fsp-logo-short.svg" alt="ФСП"/><span>CAREER</span></button><nav><button onClick={()=>route('/')}>На главную</button><button className="header-login" onClick={()=>route('/choose')}>Создать аккаунт</button></nav></header><main className="form-page login-page"><div className="form-heading"><div><div className="eyebrow">FSP CAREER / АККАУНТ</div><h1>ВХОД В ПРОФИЛЬ</h1></div></div><form className="panel form-card form-card-compact login-card" onSubmit={submit}><h2>С ВОЗВРАЩЕНИЕМ</h2><p className="muted">Продолжите работу в своём личном кабинете.</p><label className="field"><span>Почта</span><input required type="email" autoComplete="email" placeholder="name@example.com" value={email} onChange={e=>setEmail(e.target.value)}/></label><label className="field"><span>Пароль</span><input required type="password" autoComplete="current-password" placeholder="Ваш пароль" value={password} onChange={e=>setPassword(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<button className="btn btn-primary login-submit" disabled={busy}>{busy?'Входим…':'Войти в профиль'}</button><div className="login-register"><span>Ещё нет аккаунта?</span><button type="button" className="text-link" onClick={()=>route('/candidate/register')}>Я кандидат</button><button type="button" className="text-link" onClick={()=>route('/employer/register')}>Я работодатель</button></div></form></main></>;
+}

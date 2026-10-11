@@ -1,0 +1,102 @@
+import json
+import os
+import sqlite3
+from pathlib import Path
+from contextlib import contextmanager
+from datetime import datetime, timezone
+
+ROOT = Path(__file__).resolve().parents[1]
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+def db_path():
+    return Path(os.environ.get('FSP_DB', str(ROOT / 'data' / 'fsp.sqlite3')))
+
+@contextmanager
+def connect(path=None):
+    path = Path(path or db_path())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(path, timeout=60)
+    c.row_factory = sqlite3.Row
+    c.execute('PRAGMA foreign_keys=ON')
+    c.execute('PRAGMA busy_timeout=60000')
+    try:
+        yield c
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
+    finally:
+        c.close()
+
+def init_db(path=None):
+    with connect(path) as c:
+        c.execute('PRAGMA journal_mode=WAL')
+        c.executescript((ROOT / 'backend/schema.sql').read_text())
+        columns={row['name'] for row in c.execute('PRAGMA table_info(vacancies)')}
+        if 'visibility' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK(visibility IN ('public','private'))")
+        if 'status' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed'))")
+        if 'closed_at' not in columns:
+            c.execute('ALTER TABLE vacancies ADD COLUMN closed_at TEXT')
+        if 'grade' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN grade TEXT NOT NULL DEFAULT 'Junior' CHECK(grade IN ('Junior','Middle','Senior'))")
+        if 'grade_source' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN grade_source TEXT NOT NULL DEFAULT 'heuristic_v1'")
+        if 'required_technologies_json' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN required_technologies_json TEXT NOT NULL DEFAULT '[]'")
+        resume_columns={row['name'] for row in c.execute('PRAGMA table_info(resumes)')}
+        if 'expected_salary_min' not in resume_columns:
+            c.execute('ALTER TABLE resumes ADD COLUMN expected_salary_min INTEGER CHECK(expected_salary_min>0)')
+        employer_columns={row['name'] for row in c.execute('PRAGMA table_info(employer_profiles)')}
+        if 'access_status' not in employer_columns:
+            c.execute("ALTER TABLE employer_profiles ADD COLUMN access_status TEXT NOT NULL DEFAULT 'pending' CHECK(access_status IN ('pending','approved','blocked'))")
+            c.execute("UPDATE employer_profiles SET access_status='approved'")
+        if 'approved_at' not in employer_columns:
+            c.execute('ALTER TABLE employer_profiles ADD COLUMN approved_at TEXT')
+            c.execute("UPDATE employer_profiles SET approved_at=? WHERE access_status='approved'",(now(),))
+        invitation_columns={row['name'] for row in c.execute('PRAGMA table_info(hiring_invitations)')}
+        if 'currency' not in invitation_columns:
+            c.execute("ALTER TABLE hiring_invitations ADD COLUMN currency TEXT NOT NULL DEFAULT 'RUB' CHECK(currency='RUB')")
+        c.execute('CREATE INDEX IF NOT EXISTS ix_vacancy_discovery ON vacancies(visibility,status,specialization)')
+        c.execute('''INSERT OR IGNORE INTO candidate_initial_grades(user_id,grade,declared_at)
+          SELECT u.id,coalesce(cg.grade,'Junior'),u.created_at FROM users u
+          LEFT JOIN candidate_grades cg ON cg.user_id=u.id
+          WHERE u.role='candidate' AND u.origin='registration' ''')
+        c.execute('''INSERT OR IGNORE INTO candidate_test_grades(user_id,current_grade,updated_at)
+          SELECT user_id,grade,declared_at FROM candidate_initial_grades''')
+        if not c.execute('SELECT 1 FROM schema_version WHERE version=3').fetchone():
+            rows=c.execute('''SELECT cp.user_id,cp.profile_json,ig.grade,tg.current_grade,ig.declared_at
+              FROM candidate_profiles cp JOIN candidate_initial_grades ig ON ig.user_id=cp.user_id
+              LEFT JOIN candidate_test_grades tg ON tg.user_id=cp.user_id''').fetchall()
+            for row in rows:
+                for specialization in json.loads(row['profile_json']).get('selected',[]):
+                    c.execute('''INSERT OR IGNORE INTO candidate_specialization_grades
+                      (user_id,specialization,declared_grade,current_grade,declared_at,updated_at)
+                      VALUES(?,?,?,?,?,?)''',(row['user_id'],specialization,row['grade'],row['current_grade'] or row['grade'],row['declared_at'],now()))
+            c.execute('INSERT INTO schema_version VALUES(3,?)',(now(),))
+        if not c.execute('SELECT 1 FROM schema_version WHERE version=4').fetchone():
+            from .matching_requirements import backfill_existing
+            backfill_existing(c)
+            c.execute('INSERT INTO schema_version VALUES(4,?)',(now(),))
+        if not c.execute('SELECT 1 FROM schema_version WHERE version=5').fetchone():
+            # Existing imported scores have no test grade: retain their narrow demo
+            # values at every grade, then rebuild users with graded test history.
+            c.execute('''INSERT OR IGNORE INTO candidate_skill_grade_vectors
+              (user_id,grade,catalog_sha256,dimensions,vector,source,updated_at)
+              SELECT v.user_id,g.grade,v.catalog_sha256,v.dimensions,v.vector,v.source,v.updated_at
+              FROM candidate_skill_vectors v CROSS JOIN
+                (SELECT 'Junior' grade UNION ALL SELECT 'Middle' UNION ALL SELECT 'Senior') g''')
+            c.execute('''UPDATE technology_level_results SET passed=(best_score>=50)
+              WHERE passed!=(best_score>=50)''')
+            users=[row[0] for row in c.execute('SELECT DISTINCT user_id FROM technology_level_results')]
+            if users:
+                from .ranking import catalog, rebuild_skill_vector
+                from .assessments import update_grades
+                names,catalog_hash=catalog()
+                for user_id in users:
+                    rebuild_skill_vector(c,user_id,names,catalog_hash)
+                    update_grades(c,user_id)
+            c.execute('INSERT INTO schema_version VALUES(5,?)',(now(),))
