@@ -88,11 +88,12 @@ h1,h2,h3,h4{font-family:Inter,Arial,sans-serif;font-weight:600;letter-spacing:-.
 .company-profile-panel h2{margin:10px 0 18px}
 .company-profile-panel p{color:#c8c7ce;white-space:pre-wrap}
 .company-profile-panel .field textarea{min-height:135px}
-.employer-vacancy,.candidate-vacancy{padding:26px;margin:14px 0}
+.employer-vacancy{padding:26px;margin:14px 0}
+.candidate-vacancy{margin:14px 0;overflow:hidden}
 .employer-vacancy-head{display:flex;justify-content:space-between;align-items:start;gap:20px}
 .employer-vacancy-head h2{font:700 clamp(23px,2.5vw,32px)/1.2 Inter,Arial,sans-serif;margin:0 0 10px}
 .employer-vacancy-head p{color:#aeadb8;font-size:13px;margin:0}
-.employer-vacancy>p,.candidate-vacancy>p{color:#c1c0ca;max-width:850px;white-space:pre-wrap}
+.employer-vacancy>p{color:#c1c0ca;max-width:850px;white-space:pre-wrap}
 .vacancy-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .vacancy-badges span,.match-placeholder{border:1px solid #625b87;background:#27243a;padding:9px 11px;color:#d3ccff;font-size:12px;white-space:nowrap}
 .employer-vacancy-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--line);padding-top:17px}
@@ -106,6 +107,22 @@ h1,h2,h3,h4{font-family:Inter,Arial,sans-serif;font-weight:600;letter-spacing:-.
 .vacancy-search-controls .field{flex:1 1 200px;max-width:310px;margin:0}
 .vacancy-search-count{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex:1 1 220px;color:#d3ccff;font-size:13px}
 .vacancy-search-note{margin:8px 0 20px;line-height:1.5}
+.candidate-vacancy-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:23px 26px;text-align:left;transition:background .2s}
+.candidate-vacancy-toggle:hover,.candidate-vacancy-toggle[aria-expanded="true"]{background:rgba(91,79,151,.13)}
+.candidate-vacancy-toggle:focus-visible{outline:2px solid #9589ff;outline-offset:-3px}
+.candidate-vacancy-summary{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0}
+.candidate-vacancy-summary strong{font:700 clamp(20px,2.3vw,27px)/1.2 Inter,Arial,sans-serif;overflow-wrap:anywhere}
+.candidate-vacancy-salary{font:600 16px/1.3 Inter,Arial,sans-serif;color:#d9d2ff}
+.candidate-vacancy-summary .salary-warning{margin:2px 0 0}
+.candidate-vacancy-toggle-meta{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.candidate-vacancy-more{color:#c8c1ff;font-size:13px;white-space:nowrap}
+.candidate-vacancy-expanded{border-top:1px solid var(--line);padding:22px 26px 26px}
+.candidate-vacancy-expanded .eyebrow{margin-bottom:7px}
+.candidate-vacancy-company{color:#aeadb8;font-size:13px;margin-bottom:18px}
+.candidate-vacancy-expanded h3{font:700 18px Inter,Arial,sans-serif;margin:22px 0 9px}
+.candidate-vacancy-expanded h3:first-of-type{margin-top:0}
+.candidate-vacancy-expanded p:not(.eyebrow):not(.candidate-vacancy-company){color:#c1c0ca;max-width:850px;white-space:pre-wrap;line-height:1.55}
+.candidate-vacancy-expanded .chips{margin:0}
 .vacancy-score-detail{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .vacancy-score-detail span{border:1px solid var(--line);padding:7px 10px;color:#c8c4d8;font-size:12px}
 .candidate-vacancy .row-actions{margin-top:20px}
@@ -139,6 +156,7 @@ h1,h2,h3,h4{font-family:Inter,Arial,sans-serif;font-weight:600;letter-spacing:-.
 .chat-locked{padding:18px 24px;border-top:1px solid var(--line);color:#aaa9b7}
 @media(max-width:900px){.company-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.employer-vacancy-bottom{align-items:start;flex-direction:column}}
 @media(max-width:620px){.company-stats,.candidate-opportunities{grid-template-columns:1fr}.vacancy-filter,.employer-vacancy-head{flex-direction:column;align-items:stretch}.vacancy-filter .field{min-width:0;max-width:none}.vacancy-badges{justify-content:flex-start}.match-placeholder{align-self:flex-start}}
+@media(max-width:620px){.candidate-vacancy-toggle{align-items:flex-start;flex-direction:column;gap:15px;padding:20px}.candidate-vacancy-toggle-meta{width:100%;justify-content:space-between}.candidate-vacancy-expanded{padding:20px}}
 .match-row .match-stack{grid-column:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px}
 .match-row .match-stack span{grid-column:auto;border:1px solid #575172;background:#272436;color:#d7d0ff;padding:5px 8px;font-size:11px}
 .match-row b{grid-row:1/4}
