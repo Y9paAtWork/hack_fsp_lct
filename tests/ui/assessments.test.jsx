@@ -1,13 +1,24 @@
 import React from 'react';
 import {describe,it,expect,afterEach,vi} from 'vitest';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
-import {TechnologyTests,DailyPractice} from '../../src/Assessments';
+import {TechnologyTests,DailyPractice,GradeProgress} from '../../src/Assessments';
 import DatabaseEmployer from '../../src/DatabaseEmployer';
 
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
 const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
 
 describe('Assessment screens',()=>{
+ it('shows the declared Middle grade as the confirmation target',async()=>{
+  global.fetch=vi.fn(async()=>response({specializations:{'ML / AI':{
+   current_grade:'Middle',confirmed_grade:null,next_grade:'Middle',can_advance:false,
+   levels:{Middle:{groups_done:0,groups_required:5,at_target_done:0,at_target_required:2,
+    mandatory_first:3,groups:[]}}
+  }}}));
+  render(<GradeProgress/>);
+  await screen.findByText(/Middle не подтверждён/);
+  expect(screen.getByText(/Подтверждение уровня/)).toBeTruthy();
+  expect(screen.queryByText(/Следующий уровень: Junior/)).toBeNull();
+ });
  it('loads a real technology question and submits its answer to the server',async()=>{
   const calls=[];
   global.fetch=vi.fn(async(path,options={})=>{
@@ -18,11 +29,13 @@ describe('Assessment screens',()=>{
    return response({});
   });
   render(<TechnologyTests/>);
+  expect(screen.queryByLabelText('Специализация')).toBeNull();
   fireEvent.click(await screen.findByText('Начать'));
   await screen.findByText('Что делает Git?');
   fireEvent.click(screen.getByText('Версия A'));
   fireEvent.click(screen.getByText('Завершить и проверить'));
   await screen.findByText('100 / 100');
+  expect(calls.find(x=>x.path==='/api/tests/technologies/start').body).toEqual({technology:'Git',grade:'Junior'});
   expect(calls.find(x=>x.path==='/api/tests/technologies/a1/submit').body.answers).toEqual({q1:'A'});
  });
  it('uses the daily API and does not offer a second attempt after completion',async()=>{

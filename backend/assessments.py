@@ -85,13 +85,9 @@ def selected_specializations(c,user_id):
     return json.loads(row[0]).get('selected',[]) if row else []
 
 
-def stack(c, user_id, specialization=None):
-    names=[r[0] for r in c.execute('''SELECT rt.technology FROM resumes r JOIN resume_technologies rt
+def stack(c, user_id):
+    return [r[0] for r in c.execute('''SELECT DISTINCT rt.technology FROM resumes r JOIN resume_technologies rt
       ON rt.resume_id=r.id WHERE r.user_id=? ORDER BY rt.technology''', (user_id,))]
-    if specialization is None:return names
-    row=c.execute('SELECT profile_json FROM candidate_profiles WHERE user_id=?',(user_id,)).fetchone()
-    wanted=set(json.loads(row[0]).get('stacks',{}).get(specialization,[])) if row else set()
-    return [name for name in names if name in wanted]
 
 
 def latest_attempt(c, user_id, technology, grade):
@@ -120,8 +116,8 @@ def user_test_grade(c, user_id, specialization=None):
     return grade
 
 
-def grade_unlocked(c, user_id, tech, grade, own_grade):
-    return grade == own_grade
+def technology_test_grades(c, user_id):
+    return {user_test_grade(c, user_id, spec) for spec in selected_specializations(c, user_id)}
 
 
 def current_grade_progress(c,user_id,specialization=None):
@@ -148,16 +144,15 @@ def advance_test_grade(c,user_id,specialization=None):
     return current_grade_progress(c,user_id,progress['specialization'])
 
 
-def catalog_tests(c, user_id, specialization=None):
+def catalog_tests(c, user_id):
     rows = []
-    specialization=specialization or active_spec(c,user_id)
-    own_grade=user_test_grade(c,user_id,specialization)
-    for tech in stack(c, user_id,specialization):
+    allowed_grades = technology_test_grades(c, user_id)
+    for tech in stack(c, user_id):
         available = c.execute('''SELECT grade,count(*) FROM test_questions WHERE technology=? AND
           (question_type!='write_code' OR technology IN ('Python','JavaScript','SQL'))
           GROUP BY grade''', (tech,)).fetchall()
         for grade, count in available:
-            if not grade_unlocked(c,user_id,tech,grade,own_grade):continue
+            if grade not in allowed_grades:continue
             prev = latest_attempt(c, user_id, tech, grade)
             retry_at = None
             if prev and prev['status'] == 'completed':
@@ -165,17 +160,14 @@ def catalog_tests(c, user_id, specialization=None):
             locked = bool(prev and prev['completed_at'] and not retry_allowed(prev['completed_at']))
             rows.append({'technology': tech, 'grade': grade, 'questions': count,
                          'last_score': prev['score'] if prev else None, 'retry_at': retry_at,
-                         'available': not locked or bool(prev and prev['status'] == 'started'),
-                         'own_grade':own_grade})
+                         'available': not locked or bool(prev and prev['status'] == 'started')})
     return rows
 
 
-def start_technology(c, user_id, tech, grade, specialization=None):
-    specialization=specialization or active_spec(c,user_id)
-    if tech not in stack(c, user_id,specialization) or grade not in LEVELS:
+def start_technology(c, user_id, tech, grade):
+    if tech not in stack(c, user_id) or grade not in LEVELS:
         raise HTTPException(404, 'Технология или уровень не найдены в вашем стеке')
-    own_grade=user_test_grade(c,user_id,specialization)
-    if not grade_unlocked(c,user_id,tech,grade,own_grade):
+    if grade not in technology_test_grades(c, user_id):
         raise HTTPException(409,'Этот уровень пока недоступен для вашего грейда')
     latest = latest_attempt(c, user_id, tech, grade)
     if latest and latest['status'] == 'started':
@@ -285,7 +277,11 @@ def grade_progress(c, user_id):
         confirmed_row = c.execute('SELECT grade FROM candidate_verified_grades WHERE user_id=? AND specialization=?',
                                   (user_id, spec)).fetchone()
         confirmed = confirmed_row[0] if confirmed_row else None
-        target = LEVELS[min(LEVELS.index(confirmed) + 1, 2)] if confirmed else 'Junior'
+        current = user_test_grade(c, user_id, spec)
+        if not confirmed or LEVELS.index(confirmed) < LEVELS.index(current):
+            target = current
+        else:
+            target = LEVELS[LEVELS.index(current) + 1] if current != 'Senior' else None
         levels = {}
         for level in LEVELS:
             requirement = rules['levels'][level]
@@ -307,7 +303,6 @@ def grade_progress(c, user_id):
                              'at_target_done': at_target,
                              'at_target_required': requirement['minimum_groups_at_target_grade'],
                              'mandatory_first': requirement['mandatory_first_n_groups'], 'groups': groups}
-        current=user_test_grade(c,user_id,spec)
         can_advance=current!='Senior' and confirmed in LEVELS and LEVELS.index(confirmed)>=LEVELS.index(current)
         result[spec] = {'confirmed_grade': confirmed, 'current_grade':current,
                         'can_advance':bool(can_advance),
@@ -321,15 +316,16 @@ def update_grades(c, user_id):
     progress = grade_progress(c, user_id)
     for spec, entry in progress.items():
         confirmed = entry['confirmed_grade']
-        for level in LEVELS:
-            if confirmed and LEVELS.index(level) <= LEVELS.index(confirmed): continue
-            if not entry['levels'][level]['eligible']: break
-            c.execute('''INSERT INTO candidate_verified_grades VALUES(?,?,?,?,?,?)
-              ON CONFLICT(user_id,specialization) DO UPDATE SET grade=excluded.grade,
-              rule_version=excluded.rule_version,source_version=excluded.source_version,
-              confirmed_at=excluded.confirmed_at''',
-              (user_id, spec, level, RULE_VERSION, BANK_VERSION, now()))
-            confirmed = level
+        current = entry['current_grade']
+        if confirmed and LEVELS.index(confirmed) >= LEVELS.index(current):
+            continue
+        if not entry['levels'][current]['eligible']:
+            continue
+        c.execute('''INSERT INTO candidate_verified_grades VALUES(?,?,?,?,?,?)
+          ON CONFLICT(user_id,specialization) DO UPDATE SET grade=excluded.grade,
+          rule_version=excluded.rule_version,source_version=excluded.source_version,
+          confirmed_at=excluded.confirmed_at''',
+          (user_id, spec, current, RULE_VERSION, BANK_VERSION, now()))
     return grade_progress(c, user_id)
 
 

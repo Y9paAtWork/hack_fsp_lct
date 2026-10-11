@@ -4,6 +4,7 @@ import {useProfile} from './ProfileContext';
 
 const go=path=>{location.hash=path;window.scrollTo({top:0,behavior:'instant'})};
 const technologies=value=>{try{return JSON.parse(value||'[]')}catch{return []}};
+const hasSalaryRange=item=>item.salary_min!=null&&item.salary_max!=null&&Number(item.salary_min)>0&&Number(item.salary_max)>=Number(item.salary_min);
 const statusLabel={pending:'Ожидает решения',approved:'Одобрено',rejected:'Отклонено'};
 
 export default function CandidateVacancies(){
@@ -54,11 +55,11 @@ export default function CandidateVacancies(){
   {error&&<p role="alert">{error} {ranked&&'Можно открыть каталог вакансий.'}</p>}
   {ranked&&data&&<p className="muted vacancy-search-note">Скор от 0 до 1 · опыт 70% · технологии 25% · активность 2,5% · достижения 2,5%.{data.experience_blocks===0?' Векторизованного опыта пока нет; опыт получает 0.':''}{data.experience_pending>0?` Ожидают обработки: ${data.experience_pending} блоков опыта.`:''}{data.stale_vacancies>0?` Вакансий с устаревшим вектором: ${data.stale_vacancies}.`:''}</p>}
   <div className="candidate-vacancies">
-   {data?.items.map((item,index)=><section className="panel candidate-vacancy" key={item.id}>
-    <div className="employer-vacancy-head"><div><span className="eyebrow">{ranked?`#${(page-1)*20+index+1} · `:''}{item.specialization} · {item.region||'Регион не указан'}</span><h2>{item.vacancy_name}</h2><p>{item.company_name||'Вакансия из каталога'}</p></div>{ranked&&<span className="match-placeholder">Сходство {item.score.toFixed(3)}</span>}</div>
+   {data?.items.map((item,index)=><section className={`panel candidate-vacancy ${item.salary_mismatch?'salary-mismatch':''}`} key={item.id}>
+    <div className="employer-vacancy-head"><div><span className="eyebrow">{ranked?`#${(page-1)*20+index+1} · `:''}{item.specialization} · {item.grade} · {item.region||'Регион не указан'}</span><h2>{item.vacancy_name}</h2><p>{item.company_name||'Вакансия из каталога'} · {hasSalaryRange(item)?`${Number(item.salary_min).toLocaleString('ru-RU')}–${Number(item.salary_max).toLocaleString('ru-RU')} ₽/мес`:'Зарплата не указана'}</p>{item.salary_mismatch&&<p className="salary-warning">Максимальная зарплата вакансии ниже ваших ожиданий</p>}</div>{ranked&&<span className="match-placeholder">Сходство {item.score.toFixed(3)}</span>}</div>
     <p>{item.description}</p>
     {ranked&&<div className="vacancy-score-detail"><span>Опыт {item.components.experience.toFixed(3)}</span><span>Технологии {item.components.skills.toFixed(3)}</span><span>Совпало технологий {item.matched_technologies}/{item.requested_technologies}</span>{item.best_experience&&<span>Лучший блок: {item.best_experience.title||'Проект или работа'}</span>}</div>}
-    {opened===item.id&&<div className="vacancy-details"><h3>Задачи</h3><p>{item.responsibilities||'Задачи приведены в общем описании вакансии.'}</p><h3>Требования</h3><p>{item.position_requirements||'Не указаны'}</p><h3>Стек</h3><div className="chips">{technologies(item.all_technologies_json).map(tech=><span className="chip" key={tech}>{tech}</span>)}</div>{!item.employer_id&&<p className="muted">Это вакансия из каталога; работодатель ещё не подключён к платформе.</p>}</div>}
+    {opened===item.id&&<div className="vacancy-details"><h3>Задачи</h3><p>{item.responsibilities||'Задачи приведены в общем описании вакансии.'}</p><h3>Требования</h3><p>{item.position_requirements||'Не указаны'}</p>{item.required_technologies?.length>0&&<><h3>Обязательные навыки</h3><div className="chips">{item.required_technologies.map(tech=><span className="chip" key={tech}>{tech}</span>)}</div></>}<h3>Стек</h3><div className="chips">{technologies(item.all_technologies_json).map(tech=><span className="chip" key={tech}>{tech}</span>)}</div>{!item.employer_id&&<p className="muted">Это вакансия из каталога; работодатель ещё не подключён к платформе.</p>}</div>}
     <div className="row-actions"><button className="btn" onClick={()=>setOpened(opened===item.id?'':item.id)}>{opened===item.id?'Скрыть описание':'Подробнее'}</button>{applied.has(item.id)?<button className="btn" onClick={()=>go(`/candidate/chat/${applied.get(item.id).id}`)}>Отклик: {statusLabel[applied.get(item.id).status]}</button>:<button className="btn btn-primary" disabled={busy===item.id} onClick={()=>apply(item.id)}>{busy===item.id?'Отправляем…':'Откликнуться'}</button>}</div>
    </section>)}
   </div>

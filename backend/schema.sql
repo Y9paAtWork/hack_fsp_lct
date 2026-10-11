@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS resumes(
  languages TEXT, certificates TEXT, achievements TEXT, additional_information TEXT,
  ner_technologies_json TEXT NOT NULL DEFAULT '[]', all_technologies_json TEXT NOT NULL DEFAULT '[]',
  technology_count INTEGER, raw_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+ expected_salary_min INTEGER CHECK(expected_salary_min>0),
  UNIQUE(import_id,source_row)
 );
 CREATE TABLE IF NOT EXISTS technologies(
@@ -112,6 +113,9 @@ CREATE TABLE IF NOT EXISTS vacancies(
  visibility TEXT NOT NULL DEFAULT 'public' CHECK(visibility IN ('public','private')),
  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed')),
  closed_at TEXT,
+ grade TEXT NOT NULL DEFAULT 'Junior' CHECK(grade IN ('Junior','Middle','Senior')),
+ grade_source TEXT NOT NULL DEFAULT 'heuristic_v1',
+ required_technologies_json TEXT NOT NULL DEFAULT '[]',
  UNIQUE(import_id,source_row)
 );
 CREATE TABLE IF NOT EXISTS vacancy_technologies(

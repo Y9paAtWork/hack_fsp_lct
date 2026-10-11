@@ -1,6 +1,5 @@
 import React,{useEffect,useState} from 'react';
 import {api} from './api';
-import {useProfile} from './ProfileContext';
 
 function Question({question,value,onChange}){
  const opts=question.options||[];
@@ -13,15 +12,12 @@ function Question({question,value,onChange}){
 }
 
 export function TechnologyTests(){
- const profile=useProfile()?.profile;
- const specializations=profile?.selected||[];
- const [specialization,setSpecialization]=useState(profile?.active||specializations[0]||'');
- const [items,setItems]=useState([]),[grade,setGrade]=useState(''),[attempt,setAttempt]=useState(null),[answers,setAnswers]=useState({}),[result,setResult]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const reload=()=>api(`/tests/technologies${specialization?`?specialization=${encodeURIComponent(specialization)}`:''}`).then(r=>{setGrade(r.grade||'');setItems((r.items||[]).filter(item=>!r.grade||item.grade===r.grade));setError('')}).catch(e=>setError(e.message));
- useEffect(()=>{reload()},[specialization]);
- const start=async item=>{setBusy(true);setError('');try{const data=await api('/tests/technologies/start',{method:'POST',body:{technology:item.technology,grade:item.grade,specialization}});setAttempt(data);setAnswers({});setResult(null);}catch(e){setError(e.message)}finally{setBusy(false)}};
+ const [items,setItems]=useState([]),[attempt,setAttempt]=useState(null),[answers,setAnswers]=useState({}),[result,setResult]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const reload=()=>api('/tests/technologies').then(r=>{setItems(r.items||[]);setError('')}).catch(e=>setError(e.message));
+ useEffect(()=>{reload()},[]);
+ const start=async item=>{setBusy(true);setError('');try{const data=await api('/tests/technologies/start',{method:'POST',body:{technology:item.technology,grade:item.grade}});setAttempt(data);setAnswers({});setResult(null);}catch(e){setError(e.message)}finally{setBusy(false)}};
  const submit=async()=>{setBusy(true);setError('');try{const data=await api(`/tests/technologies/${attempt.attempt_id}/submit`,{method:'POST',body:{answers}});setResult(data);setAttempt(null);reload();}catch(e){setError(e.message)}finally{setBusy(false)}};
- return <><div className="eyebrow">ЛИЧНЫЙ КАБИНЕТ / ТЕСТИРОВАНИЕ</div><h1>ТЕСТЫ ПО ТЕХНОЛОГИЯМ</h1><p className="page-sub">Вопросы по вашему стеку{grade?` и текущему грейду ${grade}`:''}. Результаты сохраняются в аккаунте.</p>{specializations.length>0&&<label className="field assessment-specialization"><span>Специализация</span><select value={specialization} onChange={e=>{setSpecialization(e.target.value);setAttempt(null);setResult(null);setItems([])}}>{specializations.map(spec=><option key={spec}>{spec}</option>)}</select></label>}{error&&<p role="alert">{error}</p>}
+ return <><div className="eyebrow">ЛИЧНЫЙ КАБИНЕТ / ТЕСТИРОВАНИЕ</div><h1>ТЕСТЫ ПО ТЕХНОЛОГИЯМ</h1><p className="page-sub">Тест по каждой технологии и уровню проходится один раз и учитывается во всех ваших специализациях. Результаты сохраняются в аккаунте.</p>{error&&<p role="alert">{error}</p>}
  {result&&<section className="panel assessment-result"><h2>{result.technology} · {result.grade}</h2><strong>{result.score} / 100</strong><p>{result.passed?'Уровень пройден':'Порог уровня пока не достигнут'}{result.next_level_available?' · Высокий результат поможет при повышении грейда':''}</p><button className="btn" onClick={()=>setResult(null)}>К списку</button></section>}
  {attempt?<><div className="assessment-head"><button className="btn" onClick={()=>setAttempt(null)}>К списку тестов</button><span>{attempt.technology} · {attempt.grade} · {attempt.questions.length} заданий</span></div>{attempt.questions.map(q=><Question key={q.id} question={q} value={answers[q.id]} onChange={value=>setAnswers(old=>({...old,[q.id]:value}))}/>)}<button className="btn btn-primary" disabled={busy||Object.keys(answers).length!==attempt.questions.length} onClick={submit}>{busy?'Проверяем…':'Завершить и проверить'}</button></>:
  <div className="assessment-grid">{items.length?items.map(item=><section className="panel assessment-card" key={`${item.technology}-${item.grade}`}><h3>{item.technology}</h3><p>{item.grade} · {item.questions} заданий</p><p>{item.last_score===null?'Пока не проходили':`Последний результат: ${item.last_score} / 100`}</p>{item.retry_at&&!item.available&&<small>Пересдача с {new Date(item.retry_at).toLocaleString('ru-RU')}</small>}<button className="btn btn-primary" disabled={!item.available||busy} onClick={()=>start(item)}>{item.last_score===null?'Начать':'Открыть тест'}</button></section>):<section className="panel assessment-card">Для вашего стека и текущего грейда пока нет доступных тестов.</section>}</div>}</>;
@@ -44,7 +40,13 @@ export function GradeProgress(){
  const reload=()=>api('/grades/progress').then(progress=>setData(progress.specializations)).catch(e=>setError(e.message));
  useEffect(()=>{reload()},[]);
  const advance=async spec=>{try{await api(`/grades/advance?specialization=${encodeURIComponent(spec)}`,{method:'POST'});await reload()}catch(e){setError(e.message)}};
- return <div className="grade-progress"><h2>ПОДТВЕРЖДЕНИЕ ГРЕЙДА</h2>{error&&<p role="alert">{error}</p>}{data&&Object.entries(data).map(([spec,p])=>{const next=p.levels[p.next_grade];return <section className="panel" key={spec}><h3>{spec}</h3><p>Текущий уровень тестов: <strong>{p.current_grade}</strong> · {p.confirmed_grade?`подтверждён ${p.confirmed_grade}`:'грейд не подтверждён'}</p>{p.can_advance&&<button className="btn" onClick={()=>advance(spec)}>Перейти на {p.next_test_grade}</button>}<p>Следующий уровень: {p.next_grade}. Групп: {next.groups_done} / {next.groups_required}, на нужном уровне: {next.at_target_done} / {next.at_target_required}.</p><div className="grade-groups">{next.groups.map((g,i)=><div key={g.name} className={g.done?'done':''}><strong>{g.done?'✓':'○'} {g.name}{i<next.mandatory_first?' · обязательно':''}</strong><small>{g.done?g.matched.join(', '):`Нужно ${g.needed}: ${g.alternatives.join(', ')}`}</small></div>)}</div></section>})}{data&&!Object.keys(data).length&&<p>Выберите специализацию в анкете.</p>}</div>;
+ return <div className="grade-progress"><h2>ПОДТВЕРЖДЕНИЕ ГРЕЙДА</h2>{error&&<p role="alert">{error}</p>}{data&&Object.entries(data).map(([spec,p])=>{
+  const target=p.next_grade?p.levels[p.next_grade]:null;
+  const confirmingCurrent=p.next_grade===p.current_grade;
+  const status=p.confirmed_grade===p.current_grade
+   ?`${p.current_grade} подтверждён`
+   :`${p.current_grade} не подтверждён${p.confirmed_grade?` · ранее подтверждён ${p.confirmed_grade}`:''}`;
+  return <section className="panel" key={spec}><h3>{spec}</h3><p>Текущий уровень тестов: <strong>{p.current_grade}</strong> · {status}</p>{p.can_advance&&<button className="btn" onClick={()=>advance(spec)}>Перейти на {p.next_test_grade}</button>}{target?<><p>{confirmingCurrent?'Подтверждение уровня':'Следующий уровень'}: <strong>{p.next_grade}</strong>. Групп: {target.groups_done} / {target.groups_required}, на нужном уровне: {target.at_target_done} / {target.at_target_required}.</p><div className="grade-groups">{target.groups.map((g,i)=><div key={g.name} className={g.done?'done':''}><strong>{g.done?'✓':'○'} {g.name}{i<target.mandatory_first?' · обязательно':''}</strong><small>{g.done?g.matched.join(', '):`Нужно ${g.needed}: ${g.alternatives.join(', ')}`}</small></div>)}</div></>:<p>Senior подтверждён — максимальный уровень.</p>}</section>})}{data&&!Object.keys(data).length&&<p>Выберите специализацию в анкете.</p>}</div>;
 }
 
 export function RealActivityCalendar(){

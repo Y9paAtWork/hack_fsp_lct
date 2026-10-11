@@ -28,7 +28,7 @@ def employer_overview(c,employer_id):
 
 def my_vacancies(c,employer_id):
     rows=c.execute('''SELECT v.id,v.vacancy_name,v.specialization,v.region,v.description,v.responsibilities,
-      v.visibility,v.status,v.created_at,v.closed_at,
+      v.visibility,v.status,v.grade,v.salary_min,v.salary_max,v.required_technologies_json,v.created_at,v.closed_at,
       (SELECT count(*) FROM hiring_interactions h WHERE h.vacancy_id=v.id AND h.kind='application') application_count,
       (SELECT count(*) FROM hiring_interactions h WHERE h.vacancy_id=v.id AND h.kind='application' AND h.status='pending') pending_count
       FROM vacancies v WHERE v.employer_id=? ORDER BY v.created_at DESC,v.id DESC''',(employer_id,)).fetchall()
@@ -43,7 +43,7 @@ def public_vacancies(c,specialization='',page=1,limit=20):
     total=c.execute('SELECT count(*) FROM vacancies v WHERE '+where,params).fetchone()[0]
     rows=c.execute('''SELECT v.id,v.vacancy_name,v.specialization,v.region,v.description,v.responsibilities,
       v.position_requirements,v.skills_text,v.all_technologies_json,v.employer_id,
-      ep.company_name, v.visibility,v.status,v.created_at
+      ep.company_name, v.visibility,v.status,v.grade,v.salary_min,v.salary_max,v.required_technologies_json,v.created_at
       FROM vacancies v LEFT JOIN employer_profiles ep ON ep.user_id=v.employer_id
       WHERE '''+where+' ORDER BY (v.employer_id IS NULL),v.created_at DESC,v.id DESC LIMIT ? OFFSET ?',
       params+[limit,(page-1)*limit]).fetchall()

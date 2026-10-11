@@ -19,6 +19,8 @@ import numpy as np
 from .db import ROOT, connect, init_db, now
 from .embedding_worker import DIMENSIONS, MODEL, REVISION
 from .technology_heuristics import extract_technologies
+from .matching_requirements import usable_salary_range
+from .profile import shared_technologies
 
 CATALOG_PATH = Path(__file__).with_name('technology_stack_FINAL.csv')
 WEIGHTS = {'experience': 0.70, 'skills': 0.25, 'activity': 0.025, 'fsp': 0.025}
@@ -276,22 +278,42 @@ def rank_vacancy(c, vacancy_id, limit=20, candidate_ids=None, weights=None, veri
         technology_source = 'stored_catalog_fallback'
     name_index = {name: i for i, name in enumerate(names)}
     required_indexes = [name_index[name] for name in requested if name in name_index]
+    mandatory = set(json.loads(vacancy['required_technologies_json'] or '[]'))
+    salary_range_valid=usable_salary_range(vacancy['salary_min'],vacancy['salary_max'])
     sql = '''SELECT r.id resume_id,r.user_id,r.position_name,r.specialization,r.all_technologies_json candidate_stack_json,u.origin,u.name candidate_name,
+         r.expected_salary_min,
          sv.vector skill_vector,sv.catalog_sha256,sv.dimensions,sv.source skill_source,
-         a.activity_score,a.source activity_source,vg.grade verified_grade
+         a.activity_score,a.source activity_source,vg.grade verified_grade,
+         CASE WHEN u.origin='registration' THEN sg.current_grade ELSE cg.grade END candidate_grade,
+         cp.profile_json
          FROM resumes r JOIN users u ON u.id=r.user_id
          LEFT JOIN candidate_skill_vectors sv ON sv.user_id=r.user_id
          LEFT JOIN candidate_activity a ON a.user_id=r.user_id
-         LEFT JOIN candidate_verified_grades vg ON vg.user_id=r.user_id AND vg.specialization=r.specialization
-         WHERE r.specialization=?'''
-    params = [vacancy['specialization']]
+         LEFT JOIN candidate_verified_grades vg ON vg.user_id=r.user_id AND vg.specialization=?
+         LEFT JOIN candidate_grades cg ON cg.user_id=r.user_id
+         LEFT JOIN candidate_specialization_grades sg ON sg.user_id=r.user_id AND sg.specialization=?
+         LEFT JOIN candidate_profiles cp ON cp.user_id=r.user_id
+         WHERE (r.specialization=? OR (u.origin='registration' AND EXISTS(
+           SELECT 1 FROM json_each(r.specializations_json) WHERE value=?)))
+         AND (CASE WHEN u.origin='registration' THEN sg.current_grade ELSE cg.grade END)=?'''
+    params = [vacancy['specialization'],vacancy['specialization'],vacancy['specialization'],vacancy['specialization'],vacancy['grade']]
     if verified_only:sql += ' AND vg.grade IS NOT NULL'
     if candidate_ids is not None:
         if not candidate_ids:
             return []
         sql += f" AND r.id IN ({','.join('?' for _ in candidate_ids)})"
         params.extend(candidate_ids)
-    candidates = [dict(row) for row in c.execute(sql, params)]
+    candidates = []
+    for row in c.execute(sql, params):
+        candidate = dict(row)
+        if candidate['origin']=='registration':
+            profile=json.loads(candidate['profile_json'] or '{}')
+            stack=set(shared_technologies(profile))
+        else:
+            stack=set(json.loads(candidate['candidate_stack_json'] or '[]'))
+        if mandatory.issubset(stack):
+            candidate['display_stack']=sorted(stack)
+            candidates.append(candidate)
     for row in candidates:
         if row['origin']=='registration':
             refresh_real_activity(c,row['user_id'])
@@ -305,8 +327,9 @@ def rank_vacancy(c, vacancy_id, limit=20, candidate_ids=None, weights=None, veri
         marks = ','.join('?' for _ in batch)
         for row in c.execute(f'''SELECT iv.user_id,iv.item_id,w.kind,iv.vector FROM item_vectors iv
           JOIN work_items w ON w.id=iv.item_id WHERE iv.user_id IN ({marks})
+          AND w.specialization=?
           AND iv.model=? AND iv.revision=? AND iv.task='retrieval.passage' AND iv.dimensions=?''',
-          [*batch, MODEL, REVISION, DIMENSIONS]):
+          [*batch, vacancy['specialization'], MODEL, REVISION, DIMENSIONS]):
             vector = np.frombuffer(row['vector'], dtype='<f4')
             if vector.shape == (DIMENSIONS,):
                 experience[row['user_id']].append((max(0.0, float(np.dot(query, vector))), row['item_id'], row['kind']))
@@ -337,7 +360,9 @@ def rank_vacancy(c, vacancy_id, limit=20, candidate_ids=None, weights=None, veri
         results.append({'resume_id': row['resume_id'], 'user_id': uid,
             'candidate_name':row['candidate_name'], 'position_name': row['position_name'], 'specialization': row['specialization'],
             'contactable':row['origin']=='registration',
-            'candidate_stack':json.loads(row['candidate_stack_json'] or '[]'),
+            'candidate_stack':row['display_stack'], 'candidate_grade':row['candidate_grade'],
+            'expected_salary_min':row['expected_salary_min'],
+            'salary_mismatch':bool(salary_range_valid and row['expected_salary_min'] is not None and row['expected_salary_min']>vacancy['salary_max']),
             'verified_grade': row['verified_grade'],
             'score': round(final, 6), 'components': {k: round(v, 6) for k, v in components.items()},
             'experience_blocks_found': len(experience[uid]), 'requested_technologies': len(required_indexes),

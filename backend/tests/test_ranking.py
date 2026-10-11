@@ -24,6 +24,7 @@ class RankingTest(unittest.TestCase):
                 c.execute("INSERT INTO users(id,role,name,origin,created_at) VALUES(?,'candidate',?,'dataset','now')", (uid, uid))
                 c.execute('''INSERT INTO resumes(id,user_id,specialization,position_name,raw_json,created_at,updated_at)
                     VALUES(?,?,?,?,?,?,?)''', ('r' + uid, uid, spec, spec, '{}', 'now', 'now'))
+                c.execute("INSERT INTO candidate_grades(user_id,resume_id,grade,grade_source,source_version,updated_at) VALUES(?, ?, 'Junior','heuristic','test','now')",(uid,'r'+uid))
             c.execute('''INSERT INTO vacancies(id,vacancy_name,specialization,responsibilities,raw_json,created_at)
                 VALUES('v','ML engineer','ML / AI','Build ML services','{}','now')''')
             c.execute("INSERT INTO vacancy_technologies VALUES('v','Python')")
@@ -35,6 +36,7 @@ class RankingTest(unittest.TestCase):
                     source_field,source_text,split_method,needs_review,created_at)
                     VALUES(?,?,?,'work',0,'Built ML models','x','x','manual',0,'now')''',
                     (item, 'r' + uid, uid))
+                c.execute('UPDATE work_items SET specialization=? WHERE id=?',(spec,item))
                 vec = np.zeros(DIMENSIONS, dtype='<f4')
                 vec[0] = value
                 vec[1] = (1 - value**2)**0.5
@@ -92,6 +94,7 @@ class RankingTest(unittest.TestCase):
             c.execute('''INSERT INTO item_vectors(item_id,user_id,model,revision,task,dimensions,
                 vector,chunk_count,created_at) VALUES(?,?,?,?,?,?,?,?,?)''',
                 ('weaker', 'a', MODEL, REVISION, 'retrieval.passage', DIMENSIONS, weaker.tobytes(), 1, 'now'))
+            c.execute("UPDATE work_items SET specialization='ML / AI' WHERE id='weaker'")
             ranked = rank_vacancy(c, 'v')
         self.assertEqual(ranked[0]['resume_id'], 'ra')
         self.assertEqual({r['resume_id'] for r in ranked}, {'ra', 'rb', 'rd'})
@@ -113,6 +116,26 @@ class RankingTest(unittest.TestCase):
         self.assertEqual(all_candidates[0]['resume_id'],'ra')
         self.assertEqual(confirmed[0]['resume_id'],'rb')
         self.assertEqual(confirmed[0]['verified_grade'],'Junior')
+
+    def test_grade_optional_old_stack_and_salary_warning(self):
+        with connect(self.db) as c:
+            c.execute("UPDATE resumes SET expected_salary_min=210000 WHERE id='ra'")
+            c.execute("UPDATE resumes SET all_technologies_json='[\"Python\"]' WHERE id='ra'")
+            c.execute("UPDATE vacancies SET salary_min=100000,salary_max=200000 WHERE id='v'")
+            c.execute("DELETE FROM resume_technologies WHERE resume_id='rb'")
+            old=rank_vacancy(c,'v')
+            self.assertEqual({row['resume_id'] for row in old},{'ra','rb','rd'})
+            self.assertEqual(c.execute("SELECT required_technologies_json FROM vacancies WHERE id='v'").fetchone()[0],'[]')
+            self.assertTrue(next(row for row in old if row['resume_id']=='ra')['salary_mismatch'])
+            self.assertFalse(next(row for row in old if row['resume_id']=='rb')['salary_mismatch'])
+            c.execute("UPDATE vacancies SET salary_max=0 WHERE id='v'")
+            self.assertFalse(any(row['salary_mismatch'] for row in rank_vacancy(c,'v')))
+            c.execute("UPDATE candidate_grades SET grade='Senior' WHERE user_id='a'")
+            self.assertNotIn('ra',{row['resume_id'] for row in rank_vacancy(c,'v')})
+            c.execute("UPDATE vacancies SET required_technologies_json='[\"Python\"]' WHERE id='v'")
+            self.assertEqual(rank_vacancy(c,'v'),[])
+            c.execute("UPDATE candidate_grades SET grade='Junior' WHERE user_id='a'")
+            self.assertEqual([row['resume_id'] for row in rank_vacancy(c,'v')],['ra'])
 
     def test_synthetic_values_have_narrow_range(self):
         populate_demo(self.db)

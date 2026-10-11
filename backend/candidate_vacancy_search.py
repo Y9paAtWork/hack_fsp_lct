@@ -11,6 +11,8 @@ from .db import ROOT, connect
 from .embedding_worker import DIMENSIONS, MODEL, REVISION, aggregate_items, run_batch
 from .index_all_vacancies import _load_encoder
 from .ranking import WEIGHTS, fsp_score, refresh_real_activity, vacancy_experience_text
+from .matching_requirements import usable_salary_range
+from .profile import shared_technologies
 
 _encoder = None
 _encoder_lock = threading.Lock()
@@ -86,7 +88,12 @@ def rank_for_candidate(c, user_id, specialization='', page=1, limit=20):
 
     verified = {r['technology']: r['score'] / 100 for r in c.execute('''SELECT technology,score
         FROM skill_test_results WHERE user_id=? AND source='verified' ''', (user_id,))}
-    stacks = {spec: set(profile.get('stacks', {}).get(spec, [])) for spec in specs}
+    shared_stack=set(shared_technologies(profile))
+    stacks = {spec: shared_stack for spec in specs}
+    grades = {r['specialization']:r['current_grade'] for r in c.execute(
+        'SELECT specialization,current_grade FROM candidate_specialization_grades WHERE user_id=?',(user_id,))}
+    salary_row=c.execute('SELECT expected_salary_min FROM resumes WHERE user_id=?',(user_id,)).fetchone()
+    expected_salary_min=salary_row[0] if salary_row else None
     refresh_real_activity(c, user_id)
     activity_row = c.execute('SELECT activity_score FROM candidate_activity WHERE user_id=?',
                              (user_id,)).fetchone()
@@ -106,10 +113,16 @@ def rank_for_candidate(c, user_id, specialization='', page=1, limit=20):
     stale = 0
     for vacancy in c.execute('''SELECT v.id,v.vacancy_name,v.specialization,v.region,v.description,
         v.responsibilities,v.position_requirements,v.all_technologies_json,v.employer_id,
+        v.grade,v.salary_min,v.salary_max,v.required_technologies_json,
         v.created_at,ep.company_name,q.model,q.revision,q.task,q.dimensions,q.vector,q.text_sha256
         FROM vacancies v LEFT JOIN vacancy_query_vectors q ON q.vacancy_id=v.id
         LEFT JOIN employer_profiles ep ON ep.user_id=v.employer_id
         WHERE v.visibility='public' AND v.status='open' AND v.specialization IN ('''+marks+')', specs):
+        if vacancy['grade']!=grades.get(vacancy['specialization']):
+            continue
+        mandatory=set(json.loads(vacancy['required_technologies_json'] or '[]'))
+        if not mandatory.issubset(stacks[vacancy['specialization']]):
+            continue
         text = vacancy_experience_text(vacancy)
         if (vacancy['model'] != MODEL or vacancy['revision'] != REVISION or
                 vacancy['task'] != 'retrieval.query' or vacancy['dimensions'] != DIMENSIONS or
@@ -134,6 +147,9 @@ def rank_for_candidate(c, user_id, specialization='', page=1, limit=20):
                         'description': vacancy['description'], 'responsibilities': vacancy['responsibilities'],
                         'position_requirements': vacancy['position_requirements'],
                         'all_technologies_json': vacancy['all_technologies_json'],
+                        'grade':vacancy['grade'],'salary_min':vacancy['salary_min'],'salary_max':vacancy['salary_max'],
+                        'required_technologies':sorted(mandatory),
+                        'salary_mismatch':bool(usable_salary_range(vacancy['salary_min'],vacancy['salary_max']) and expected_salary_min is not None and expected_salary_min>vacancy['salary_max']),
                         'employer_id': vacancy['employer_id'], 'company_name': vacancy['company_name'],
                         'score': round(score, 6),
                         'components': {key: round(value, 6) for key, value in components.items()},

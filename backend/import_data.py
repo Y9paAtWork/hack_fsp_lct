@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 from .db import connect, init_db, now, ROOT
 from .splitting import split_resume, insert_item
+from .matching_requirements import infer_vacancy_grade
 
 csv.field_size_limit(20_000_000)
 
@@ -75,8 +76,18 @@ def import_file(path,kind,db=None):
                         insert_item(c,f'{identity}:item:{n}',identity,user_id,n,item,timestamp,row.get('specialization',''))
                     technologies(c,'resume_technologies','resume_id',identity,array(row.get('all_technologies')))
                 else:
-                    cols=['id','import_id','source_row','specializations_json']+[column(k) for k in VACANCY_FIELDS]+['raw_json','created_at']
-                    vals=[identity,run_id,index,specs]+values(row,VACANCY_FIELDS)+[dump(row),timestamp]
+                    vacancy_fields={
+                        'vacancy_name':row.get('vacancy_name',''),
+                        'experience_requirements':number(row.get('experience_requirements')),
+                        'position_requirements':row.get('position_requirements',''),
+                        'additional_requirements':row.get('additional_requirements',''),
+                        'responsibilities':row.get('responsibilities',''),
+                        'description':row.get('description',''),
+                        'technology_count':number(row.get('technology_count')),
+                    }
+                    grade,grade_source=infer_vacancy_grade(vacancy_fields)
+                    cols=['id','import_id','source_row','specializations_json']+[column(k) for k in VACANCY_FIELDS]+['raw_json','created_at','grade','grade_source']
+                    vals=[identity,run_id,index,specs]+values(row,VACANCY_FIELDS)+[dump(row),timestamp,grade,grade_source]
                     c.execute(f"INSERT OR IGNORE INTO vacancies({','.join(cols)}) VALUES({','.join('?' for _ in vals)})",vals)
                     technologies(c,'vacancy_technologies','vacancy_id',identity,array(row.get('all_technologies')))
                 count=index

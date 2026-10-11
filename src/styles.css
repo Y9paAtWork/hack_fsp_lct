@@ -141,3 +141,7 @@ h1,h2,h3,h4{font-family:Inter,Arial,sans-serif;font-weight:600;letter-spacing:-.
 .match-row .match-stack span{grid-column:auto;border:1px solid #575172;background:#272436;color:#d7d0ff;padding:5px 8px;font-size:11px}
 .match-row b{grid-row:1/4}
 @media(max-width:720px){.match-row b{grid-row:auto}}
+.match-row.salary-mismatch,.candidate-vacancy.salary-mismatch{border-color:#b95761;background:linear-gradient(100deg,rgba(141,38,50,.18),rgba(24,23,32,.93))}
+.salary-warning{color:#ffb0b4!important;font-weight:600;grid-column:1;font-size:13px}
+.vacancy-form .technology-picker{margin-top:12px}.vacancy-form .chips{margin-top:12px;gap:8px}
+.experience-resume-select{max-width:360px;margin:5px 0 18px}.experience-resume-select select{width:100%}

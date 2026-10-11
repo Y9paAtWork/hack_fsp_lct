@@ -41,6 +41,15 @@ def init_db(path=None):
             c.execute("ALTER TABLE vacancies ADD COLUMN status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed'))")
         if 'closed_at' not in columns:
             c.execute('ALTER TABLE vacancies ADD COLUMN closed_at TEXT')
+        if 'grade' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN grade TEXT NOT NULL DEFAULT 'Junior' CHECK(grade IN ('Junior','Middle','Senior'))")
+        if 'grade_source' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN grade_source TEXT NOT NULL DEFAULT 'heuristic_v1'")
+        if 'required_technologies_json' not in columns:
+            c.execute("ALTER TABLE vacancies ADD COLUMN required_technologies_json TEXT NOT NULL DEFAULT '[]'")
+        resume_columns={row['name'] for row in c.execute('PRAGMA table_info(resumes)')}
+        if 'expected_salary_min' not in resume_columns:
+            c.execute('ALTER TABLE resumes ADD COLUMN expected_salary_min INTEGER CHECK(expected_salary_min>0)')
         c.execute('CREATE INDEX IF NOT EXISTS ix_vacancy_discovery ON vacancies(visibility,status,specialization)')
         c.execute('''INSERT OR IGNORE INTO candidate_initial_grades(user_id,grade,declared_at)
           SELECT u.id,coalesce(cg.grade,'Junior'),u.created_at FROM users u
@@ -58,3 +67,7 @@ def init_db(path=None):
                       (user_id,specialization,declared_grade,current_grade,declared_at,updated_at)
                       VALUES(?,?,?,?,?,?)''',(row['user_id'],specialization,row['grade'],row['current_grade'] or row['grade'],row['declared_at'],now()))
             c.execute('INSERT INTO schema_version VALUES(3,?)',(now(),))
+        if not c.execute('SELECT 1 FROM schema_version WHERE version=4').fetchone():
+            from .matching_requirements import backfill_existing
+            backfill_existing(c)
+            c.execute('INSERT INTO schema_version VALUES(4,?)',(now(),))

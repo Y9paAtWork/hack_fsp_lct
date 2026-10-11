@@ -72,10 +72,14 @@ class AssessmentTests(unittest.TestCase):
         declared=self.client.put('/api/grades/declarations',json={'grades':{'Backend':'Middle','Frontend':'Junior'}})
         self.assertEqual(declared.status_code,200,declared.text)
         self.assertEqual(declared.json()['grades']['Backend']['current_grade'],'Middle')
-        self.assertEqual(self.client.get('/api/tests/technologies?specialization=Backend').json()['grade'],'Middle')
-        self.assertEqual(self.client.get('/api/tests/technologies?specialization=Frontend').json()['grade'],'Junior')
+        catalog=self.client.get('/api/tests/technologies').json()
+        self.assertIsNone(catalog['grade'])
+        self.assertEqual(catalog['grades'],['Junior','Middle'])
+        self.assertEqual([item['grade'] for item in catalog['items'] if item['technology']=='Git'],['Junior','Middle'])
         self.assertEqual(self.client.post('/api/tests/technologies/start',json={
-            'technology':'Git','grade':'Middle','specialization':'Frontend'}).status_code,409)
+            'technology':'Git','grade':'Senior'}).status_code,409)
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Middle'}).status_code,200)
         with connect() as c:
             c.execute('INSERT INTO candidate_verified_grades VALUES(?,?,?,?,?,?)',
                       (self.user_id,'Backend','Middle','test-rule','test-bank',datetime.now(timezone.utc).isoformat()))
@@ -88,6 +92,39 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(progress['Frontend']['current_grade'],'Junior')
         self.assertEqual(self.client.put('/api/grades/declarations',json={'grades':{
             'Backend':'Junior','Frontend':'Junior'}}).status_code,409)
+
+    def test_same_technology_test_is_shared_across_specializations(self):
+        data=self.client.get('/api/profile').json()
+        data['profile'].update({'selected':['Backend','Frontend'],'active':'Backend',
+                                'stacks':{'Backend':['Git'],'Frontend':['Git']}})
+        self.assertEqual(self.client.put('/api/profile',json=data).status_code,200)
+        items=[item for item in self.client.get('/api/tests/technologies').json()['items']
+               if item['technology']=='Git' and item['grade']=='Junior']
+        self.assertEqual(len(items),1)
+        start=self.client.post('/api/tests/technologies/start',json={'technology':'Git','grade':'Junior'})
+        self.assertEqual(start.status_code,200,start.text)
+        attempt=start.json()
+        with connect() as c:
+            answers={q['id']:json.loads(c.execute(
+                'SELECT correct_answers_json FROM test_questions WHERE id=?',(q['id'],)).fetchone()[0])[0]
+                for q in attempt['questions']}
+        result=self.client.post(f"/api/tests/technologies/{attempt['attempt_id']}/submit",json={'answers':answers})
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(result.json()['score'],100)
+        with connect() as c:
+            self.assertEqual(c.execute('''SELECT count(*) FROM technology_level_results
+              WHERE user_id=? AND technology='Git' AND grade='Junior' ''',(self.user_id,)).fetchone()[0],1)
+            progress=grade_progress(c,self.user_id)
+        for spec in ('Backend','Frontend'):
+            self.assertTrue(any(group['done'] for group in progress[spec]['levels']['Junior']['groups']
+                                if 'Git' in group['alternatives']))
+        refreshed=[item for item in self.client.get('/api/tests/technologies').json()['items']
+                   if item['technology']=='Git' and item['grade']=='Junior']
+        self.assertEqual(len(refreshed),1)
+        self.assertEqual(refreshed[0]['last_score'],100)
+        self.assertFalse(refreshed[0]['available'])
+        self.assertEqual(self.client.post('/api/tests/technologies/start',json={
+            'technology':'Git','grade':'Junior'}).status_code,409)
 
     def test_grade_advance_requires_confirmation_and_preserves_initial_grade(self):
         self.set_stack('Git')
@@ -209,6 +246,37 @@ class AssessmentTests(unittest.TestCase):
             self.assertEqual(progress['Backend']['next_grade'],'Middle')
             self.assertEqual(c.execute('SELECT count(*) FROM candidate_verified_grades WHERE user_id=?',(self.user_id,)).fetchone()[0],1)
             self.assertIn('SQLAlchemy',str(progress['Backend']['levels']['Middle']['groups']))
+
+    def test_declared_middle_is_the_confirmation_target_without_junior_prerequisite(self):
+        data=self.client.get('/api/profile').json()
+        data['profile'].update({'selected':['ML / AI'],'active':'ML / AI',
+                                'stacks':{'ML / AI':['Python','NumPy','pandas','scikit-learn','PyTorch','NLP']}})
+        self.assertEqual(self.client.put('/api/profile',json=data).status_code,200)
+        declaration=self.client.put('/api/grades/declarations',json={'grades':{'ML / AI':'Middle'}})
+        self.assertEqual(declaration.status_code,200,declaration.text)
+        progress=self.client.get('/api/grades/progress').json()['specializations']['ML / AI']
+        self.assertEqual(progress['current_grade'],'Middle')
+        self.assertIsNone(progress['confirmed_grade'])
+        self.assertEqual(progress['next_grade'],'Middle')
+        self.assertFalse(progress['can_advance'])
+        with connect() as c:
+            for technology in ['Python','NumPy','pandas','scikit-learn','PyTorch','NLP']:
+                attempt_id='middle-'+technology
+                c.execute('INSERT INTO assessment_attempts VALUES(?,?,?,?,?,?,?,?,?,?)',
+                          (attempt_id,self.user_id,technology,'Middle','[]','completed',100,
+                           '2026-01-01','2026-01-01','test'))
+                c.execute('INSERT INTO technology_level_results VALUES(?,?,?,?,?,?,?,?)',
+                          (self.user_id,technology,'Middle',100,1,attempt_id,'2026-01-01','test'))
+            progress=update_grades(c,self.user_id)['ML / AI']
+            self.assertEqual(progress['confirmed_grade'],'Middle')
+            self.assertEqual(progress['next_grade'],'Senior')
+            self.assertTrue(progress['can_advance'])
+            grades=c.execute('SELECT grade FROM candidate_verified_grades WHERE user_id=?',
+                             (self.user_id,)).fetchall()
+            self.assertEqual([row[0] for row in grades],['Middle'])
+            c.execute("UPDATE candidate_verified_grades SET grade='Senior' WHERE user_id=?",
+                      (self.user_id,))
+            self.assertIsNone(grade_progress(c,self.user_id)['ML / AI']['next_grade'])
 
     def test_code_fails_closed_without_dedicated_worker(self):
         old=os.environ.pop('FSP_SANDBOX_SECRET',None)

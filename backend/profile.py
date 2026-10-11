@@ -13,12 +13,24 @@ def allowed_technologies():
         return {row['technology'] for row in csv.DictReader(source)}
 
 def empty_profile(name='',email=''):
-    return {'version':1,'name':name,'email':email,'fsp':'','terms':True,'step':1,'selected':[],'active':'','stacks':{},'jobs':{},'ownProjects':{},'quiz':None}
+    return {'version':1,'name':name,'email':email,'fsp':'','salaryMin':None,'terms':True,'step':1,'selected':[],'active':'','stacks':{},'jobs':{},'ownProjects':{},'quiz':None}
+
+
+def shared_technologies(profile):
+    """One candidate stack is used by every selected specialization."""
+    stacks=profile.get('stacks',{})
+    if not isinstance(stacks,dict):return []
+    selected=profile.get('selected',[])
+    return list(dict.fromkeys(tech for spec in selected
+                              for tech in (stacks.get(spec) if isinstance(stacks.get(spec),list) else [])
+                              if isinstance(tech,str)))
 
 def sanitize(value,name,email):
     p=empty_profile(name,email)
     for key in ['name','fsp','active']:
         if isinstance(value.get(key),str):p[key]=value[key][:200]
+    salary=value.get('salaryMin')
+    if type(salary) is int and 1000<=salary<=10000000:p['salaryMin']=salary
     p['step']=value.get('step') if type(value.get('step')) is int and 1<=value['step']<=4 else 1
     p['selected']=list(dict.fromkeys(s[:100] for s in value.get('selected',[]) if isinstance(s,str)))[:20] if isinstance(value.get('selected'),list) else []
     p['active']=p['active'] if p['active'] in p['selected'] else (p['selected'][0] if p['selected'] else '')
@@ -33,16 +45,18 @@ def sanitize(value,name,email):
     source=value.get('stacks',{})
     if isinstance(source,dict):
         allowed=allowed_technologies()
-        p['stacks']={spec:list(dict.fromkeys(s for s in source.get(spec,[]) if isinstance(s,str) and s in allowed))[:202] for spec in p['selected'] if isinstance(source.get(spec,[]),list)}
+        shared=[s for s in shared_technologies({'selected':p['selected'],'stacks':source}) if s in allowed][:202]
+        p['stacks']={spec:shared[:] for spec in p['selected']}
     return p
 
 def sync_resume(c,user,profile):
     uid=user['id'];rid=f'registered:{uid}';timestamp=now()
-    c.execute('''INSERT INTO resumes(id,user_id,specialization,specializations_json,position_name,skills_text,all_technologies_json,technology_count,raw_json,created_at,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET specialization=excluded.specialization,
+    c.execute('''INSERT INTO resumes(id,user_id,specialization,specializations_json,position_name,skills_text,all_technologies_json,technology_count,raw_json,created_at,updated_at,expected_salary_min)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET specialization=excluded.specialization,
     specializations_json=excluded.specializations_json,position_name=excluded.position_name,skills_text=excluded.skills_text,
-    all_technologies_json=excluded.all_technologies_json,technology_count=excluded.technology_count,raw_json=excluded.raw_json,updated_at=excluded.updated_at''',
-    (rid,uid,profile['active'],dump(profile['selected']),profile['active'], '; '.join(s for v in profile['stacks'].values() for s in v),dump(list(dict.fromkeys(s for v in profile['stacks'].values() for s in v))),len(set(s for v in profile['stacks'].values() for s in v)),dump(profile),timestamp,timestamp))
+    all_technologies_json=excluded.all_technologies_json,technology_count=excluded.technology_count,raw_json=excluded.raw_json,
+    expected_salary_min=excluded.expected_salary_min,updated_at=excluded.updated_at''',
+    (rid,uid,profile['active'],dump(profile['selected']),profile['active'], '; '.join(s for v in profile['stacks'].values() for s in v),dump(list(dict.fromkeys(s for v in profile['stacks'].values() for s in v))),len(set(s for v in profile['stacks'].values() for s in v)),dump(profile),timestamp,timestamp,profile['salaryMin']))
     wanted=set();ordinal=0
     for spec in profile['selected']:
         for kind,key in [('work','jobs'),('project','ownProjects')]:

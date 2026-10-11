@@ -22,7 +22,7 @@ class MarketplaceTests(unittest.TestCase):
         self.assertEqual(r.status_code,200,r.text)
         self.candidate_id=r.json()['user']['id']
         self.other.post('/api/auth/register',json=candidate_payload(name='Другая',email='other@example.org',password='password123'))
-        r=self.employer.post('/api/vacancies',json={'vacancy_name':'Backend Developer','specialization':'Backend','description':'Работа над платформой заказов и внутренними сервисами.','responsibilities':'Разработка API и оптимизация запросов для платформы заказов.','visibility':'public'})
+        r=self.employer.post('/api/vacancies',json={'vacancy_name':'Backend Developer','specialization':'Backend','grade':'Middle','salary_min':100000,'salary_max':180000,'description':'Работа над платформой заказов и внутренними сервисами.','responsibilities':'Разработка API и оптимизация запросов для платформы заказов.','visibility':'public'})
         self.assertEqual(r.status_code,201,r.text)
         self.vacancy_id=r.json()['id']
     def tearDown(self):

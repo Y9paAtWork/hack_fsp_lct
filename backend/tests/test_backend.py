@@ -64,6 +64,10 @@ class BackendTests(unittest.TestCase):
   self.assertEqual(self.client.post('/api/auth/register',json=incomplete).status_code,422)
   with connect() as c:self.assertEqual(c.execute("SELECT count(*) FROM users WHERE email='draft@example.org'").fetchone()[0],0)
   complete=candidate_payload(email='draft@example.org',grade='Middle')
+  missing_salary=candidate_payload(email='salary-missing@example.org')
+  del missing_salary['profile']['salaryMin']
+  self.assertEqual(self.client.post('/api/auth/register',json=missing_salary).status_code,422)
+  with connect() as c:self.assertEqual(c.execute("SELECT count(*) FROM users WHERE email='salary-missing@example.org'").fetchone()[0],0)
   complete['profile']['fsp']='fsp-123'
   complete['profile']['stacks']={'Backend':['Python']}
   complete['profile']['jobs']={'Backend':[{'company':'Acme','role':'Backend Developer','start':'2022','end':'2025','description':'Python API'}]}
@@ -72,6 +76,7 @@ class BackendTests(unittest.TestCase):
   with connect() as c:
    self.assertEqual(c.execute("SELECT count(*) FROM users WHERE email='draft@example.org'").fetchone()[0],1)
    self.assertEqual(c.execute("SELECT declared_grade FROM candidate_specialization_grades WHERE specialization='Backend'").fetchone()[0],'Middle')
+   self.assertEqual(c.execute("SELECT expected_salary_min FROM resumes WHERE user_id=(SELECT id FROM users WHERE email='draft@example.org')").fetchone()[0],70000)
   def assert_saved_profile():
    saved=self.client.get('/api/profile')
    self.assertEqual(saved.status_code,200,saved.text)
@@ -88,7 +93,7 @@ class BackendTests(unittest.TestCase):
   assert_saved_profile()
  def test_employer_can_save_and_index_own_vacancy(self):
   owner=self.signup('owner@example.org','employer')
-  payload={'vacancy_name':'Backend Engineer','specialization':'Backend',
+  payload={'vacancy_name':'Backend Engineer','specialization':'Backend','grade':'Junior','salary_min':80000,'salary_max':150000,
            'description':'Разрабатываем сервисы для управления заказами и платежами.',
            'responsibilities':'Разрабатывать API, проектировать сервисы и улучшать производительность.',
            'position_requirements':'Опыт с Python и PostgreSQL'}
@@ -98,6 +103,17 @@ class BackendTests(unittest.TestCase):
   mine=self.client.get('/api/vacancies?mine=true').json()['items']
   self.assertEqual(len(mine),1)
   self.assertEqual(mine[0]['employer_id'],owner['id'])
+  self.assertEqual(mine[0]['grade'],'Junior')
+  self.assertEqual(json.loads(mine[0]['required_technologies_json']),[])
+  bad={**payload,'salary_max':70000}
+  self.assertEqual(self.client.post('/api/vacancies',json=bad).status_code,422)
+  bad={**payload,'required_technologies':['Imaginary Framework']}
+  self.assertEqual(self.client.post('/api/vacancies',json=bad).status_code,422)
+  required={**payload,'required_technologies':['Python']}
+  created=self.client.post('/api/vacancies',json=required)
+  self.assertEqual(created.status_code,201,created.text)
+  with connect() as c:
+   self.assertEqual(json.loads(c.execute('SELECT required_technologies_json FROM vacancies WHERE id=?',(created.json()['id'],)).fetchone()[0]),['Python'])
   self.assertIn('Python',json.loads(mine[0]['all_technologies_json']))
   with patch('backend.ranking_cli.index_vacancies') as indexer:
    self.assertEqual(self.client.post(f'/api/vacancies/{vid}/index').status_code,200)
@@ -106,6 +122,24 @@ class BackendTests(unittest.TestCase):
   self.signup('another@example.org','employer')
   self.assertEqual(self.client.post(f'/api/vacancies/{vid}/index').status_code,403)
   self.assertEqual(self.client.get(f'/api/matches/{vid}').status_code,403)
+ def test_multiple_specializations_share_stack_but_keep_experience_separate(self):
+  payload=candidate_payload(email='multi@example.org')
+  payload['profile']['selected']=['Backend','Frontend']
+  payload['profile']['stacks']={'Backend':['Python'],'Frontend':[]}
+  payload['profile']['jobs']={'Frontend':[{'company':'Web Studio','role':'Developer','start':'2023','end':'2025','description':'Interfaces'}]}
+  payload['profile']['ownProjects']={'Backend':[{'name':'API','description':'Backend API','tasks':'Python'}]}
+  payload['specialization_grades']={'Backend':'Middle','Frontend':'Junior'}
+  result=self.client.post('/api/auth/register',json=payload)
+  self.assertEqual(result.status_code,200,result.text)
+  saved=self.client.get('/api/profile').json()['profile']
+  self.assertEqual(saved['stacks'],{'Backend':['Python'],'Frontend':['Python']})
+  with connect() as c:
+   blocks=c.execute('SELECT kind,specialization FROM work_items WHERE user_id=? ORDER BY kind',(result.json()['user']['id'],)).fetchall()
+   self.assertEqual({(row['kind'],row['specialization']) for row in blocks},{('work','Frontend'),('project','Backend')})
+  current=self.client.get('/api/profile').json()
+  current['profile']['stacks']={'Backend':[],'Frontend':[]}
+  self.assertEqual(self.client.put('/api/profile',json=current).status_code,200)
+  self.assertEqual(self.client.get('/api/profile').json()['profile']['stacks'],{'Backend':[],'Frontend':[]})
  def test_split_composite_deduplicated_metadata_and_project(self):
   row={'work_experience_text':'Developer @ Acme [2020-01-01 — present] Python API || Analyst @ Beta [2018 — 2020] SQL', 'work_experience_titles':'Developer; Analyst','work_experience_companies':'Acme; Beta','additional_information':'Проект: Resume app\nDocker API'}
   items=split_resume(row);self.assertEqual([i['kind'] for i in items],['work','work','project']);self.assertEqual(items[0]['company'],'Acme')

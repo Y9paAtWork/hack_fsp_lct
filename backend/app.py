@@ -16,7 +16,7 @@ from .db import connect, init_db, now
 from .profile import empty_profile, sanitize, sync_resume
 from .import_data import dump, seed_catalog
 from .ranking import WEIGHTS, SCORING_VERSION, catalog, rank_vacancy, rebuild_skill_vector, record_visit
-from .assessments import seed_daily, seed_technology_questions, catalog_tests, start_technology, submit_technology, grade_progress, update_grades, daily_public, submit_daily, activity_calendar, user_test_grade, current_grade_progress, advance_test_grade, selected_specializations, matrix
+from .assessments import seed_daily, seed_technology_questions, catalog_tests, start_technology, submit_technology, grade_progress, update_grades, daily_public, submit_daily, activity_calendar, user_test_grade, current_grade_progress, advance_test_grade, selected_specializations, technology_test_grades, matrix
 from .marketplace import employer_overview, my_vacancies, public_vacancies, owned_vacancy, list_interactions, get_interaction, create_interaction, change_interaction, add_message
 from .candidate_vacancy_search import ensure_experience_vectors, rank_for_candidate
 
@@ -70,6 +70,10 @@ class EmployerPayload(BaseModel):
 class VacancyPayload(BaseModel):
     vacancy_name:str=Field(min_length=3,max_length=200)
     specialization:str=Field(min_length=1,max_length=100)
+    grade:str
+    salary_min:int=Field(ge=1000,le=10000000)
+    salary_max:int=Field(ge=1000,le=10000000)
+    required_technologies:list[str]=Field(default_factory=list,max_length=202)
     region:str=Field(default='',max_length=200)
     description:str=Field(min_length=20,max_length=20000)
     responsibilities:str=Field(min_length=20,max_length=20000)
@@ -88,7 +92,6 @@ class MessagePayload(BaseModel):
 class TechnologyStart(BaseModel):
     technology:str
     grade:str
-    specialization:str=''
 class GradeDeclarations(BaseModel):
     grades:dict[str,str]
 class AnswersPayload(BaseModel):
@@ -141,6 +144,8 @@ def register(payload:Register,response:Response):
             any(spec not in matrix() for spec in profile['selected']) or
             any(grade not in ('Junior','Middle','Senior') for grade in grades.values())):
             raise HTTPException(422,'Заполните специализации и грейд каждого направления')
+        if profile['salaryMin'] is None:
+            raise HTTPException(422,'Укажите минимальную желаемую зарплату в рублях за месяц')
     uid=uuid.uuid4().hex;timestamp=now()
     try:
         with connect() as c:
@@ -252,7 +257,7 @@ def list_vacancies(q:str=Query(default='',max_length=200),page:int=Query(default
     if ready_only:where+=' AND EXISTS(SELECT 1 FROM vacancy_query_vectors vq WHERE vq.vacancy_id=vacancies.id)'
     with connect() as c:
         total=c.execute('SELECT COUNT(*) FROM vacancies WHERE '+where,params).fetchone()[0]
-        rows=c.execute('SELECT id,vacancy_name,specialization,region,salary_min,salary_max,experience_requirements,description,responsibilities,all_technologies_json,employer_id,visibility,status FROM vacancies WHERE '+where+' ORDER BY (employer_id IS NOT NULL) DESC,id LIMIT ? OFFSET ?',params+[limit,(page-1)*limit]).fetchall()
+        rows=c.execute('SELECT id,vacancy_name,specialization,grade,grade_source,region,salary_min,salary_max,required_technologies_json,experience_requirements,description,responsibilities,all_technologies_json,employer_id,visibility,status FROM vacancies WHERE '+where+' ORDER BY (employer_id IS NOT NULL) DESC,id LIMIT ? OFFSET ?',params+[limit,(page-1)*limit]).fetchall()
     return {'items':[dict(r) for r in rows],'total':total,'page':page}
 
 @app.post('/api/vacancies',status_code=201)
@@ -263,22 +268,30 @@ def create_vacancy(payload:VacancyPayload,user=Depends(employer)):
         raise HTTPException(422,'Выберите специализацию из списка')
     if payload.visibility not in ('public','private'):
         raise HTTPException(422,'Неизвестная видимость вакансии')
+    if payload.grade not in ('Junior','Middle','Senior'):
+        raise HTTPException(422,'Выберите грейд вакансии')
+    if payload.salary_max < payload.salary_min:
+        raise HTTPException(422,'Верхняя граница зарплаты должна быть не ниже нижней')
+    allowed=set(catalog()[0])
+    if len(payload.required_technologies)!=len(set(payload.required_technologies)) or any(name not in allowed for name in payload.required_technologies):
+        raise HTTPException(422,'Обязательные навыки должны быть из справочника технологий')
     values=payload.model_dump()
-    values={key:value.strip() for key,value in values.items()}
+    values={key:value.strip() if isinstance(value,str) else value for key,value in values.items()}
     if not values['vacancy_name'] or not values['description'] or not values['responsibilities']:
         raise HTTPException(422,'Заполните название, описание и задачи')
-    tech=extract_technologies(' '.join((values['description'],values['responsibilities'],values['position_requirements'],values['skills_text'])))
+    tech=list(dict.fromkeys([*extract_technologies(' '.join((values['description'],values['responsibilities'],values['position_requirements'],values['skills_text']))),*values['required_technologies']]))
     vacancy_id=uuid.uuid4().hex
     with connect() as c:
         c.execute('''INSERT INTO vacancies(id,employer_id,specialization,specializations_json,vacancy_name,
           region,description,responsibilities,position_requirements,skills_text,all_technologies_json,
-          technology_count,raw_json,created_at,visibility) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+          technology_count,raw_json,created_at,visibility,grade,grade_source,salary_min,salary_max,required_technologies_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
           (vacancy_id,user['id'],values['specialization'],dump([values['specialization']]),
            values['vacancy_name'],values['region'],values['description'],values['responsibilities'],
-           values['position_requirements'],values['skills_text'],dump(tech),len(tech),dump(values),now(),values['visibility']))
+           values['position_requirements'],values['skills_text'],dump(tech),len(tech),dump(values),now(),values['visibility'],
+           values['grade'],'employer',values['salary_min'],values['salary_max'],dump(values['required_technologies'])))
         c.executemany('INSERT INTO vacancy_technologies(vacancy_id,technology) VALUES(?,?)',
                       [(vacancy_id,name) for name in tech])
-    return {'id':vacancy_id,'technologies':tech,'indexed':False}
+    return {'id':vacancy_id,'technologies':tech,'required_technologies':values['required_technologies'],'indexed':False}
 
 @app.post('/api/vacancies/{vacancy_id}/index')
 def index_my_vacancy(vacancy_id:str,user=Depends(employer)):
@@ -376,25 +389,22 @@ def list_candidates(q:str=Query(default='',max_length=200),page:int=Query(defaul
 @app.get('/api/candidates/{resume_id}')
 def candidate_details(resume_id:str,user=Depends(employer)):
     with connect() as c:
-        r=c.execute('SELECT id,user_id,position_name,specialization,location,experience_years,all_technologies_json FROM resumes WHERE id=?',(resume_id,)).fetchone()
+        r=c.execute('SELECT id,user_id,position_name,specialization,location,experience_years,expected_salary_min,all_technologies_json FROM resumes WHERE id=?',(resume_id,)).fetchone()
         if not r:raise HTTPException(404,'Резюме не найдено')
         items=c.execute('SELECT id,kind,title,company,start_date,end_date,description,split_method,needs_review FROM work_items WHERE resume_id=? ORDER BY ordinal',(resume_id,)).fetchall()
     return {'resume':dict(r),'items':[dict(i) for i in items]}
 
 @app.get('/api/tests/technologies')
-def technology_catalog(specialization:str='',user=Depends(candidate)):
+def technology_catalog(user=Depends(candidate)):
     with connect() as c:
-        if specialization and specialization not in selected_specializations(c,user['id']):
-            raise HTTPException(422,'Специализация не выбрана')
-        return {'grade':user_test_grade(c,user['id'],specialization or None),
-                'specialization':specialization or None,'items':catalog_tests(c,user['id'],specialization or None)}
+        items=catalog_tests(c,user['id'])
+        grades=sorted(technology_test_grades(c,user['id']),key=('Junior','Middle','Senior').index)
+        return {'grade':grades[0] if len(grades)==1 else None,'grades':grades,'items':items}
 
 @app.post('/api/tests/technologies/start')
 def technology_start(payload:TechnologyStart,user=Depends(candidate)):
     with connect() as c:
-        if payload.specialization and payload.specialization not in selected_specializations(c,user['id']):
-            raise HTTPException(422,'Специализация не выбрана')
-        return start_technology(c,user['id'],payload.technology,payload.grade,payload.specialization or None)
+        return start_technology(c,user['id'],payload.technology,payload.grade)
 
 @app.get('/api/grades/declarations')
 def grade_declarations(user=Depends(candidate)):

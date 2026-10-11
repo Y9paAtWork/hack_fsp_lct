@@ -122,6 +122,18 @@ class CandidateVacancySearchTests(unittest.TestCase):
         self.assertTrue(all(item['components']['experience'] == 0 and
                             item['components']['skills'] == 0 for item in result.json()['items']))
 
+    def test_grade_and_explicit_mandatory_skills_filter_vacancies(self):
+        with connect() as c:
+            c.execute("UPDATE vacancies SET grade='Senior' WHERE id='b'")
+            c.execute("UPDATE vacancies SET salary_min=40000,salary_max=60000 WHERE id='a'")
+            c.execute("UPDATE vacancies SET required_technologies_json='[\"Python\"]' WHERE id='a'")
+        result=self.client.post('/api/candidate/vacancies/search',json={'specialization':'Backend'}).json()
+        self.assertEqual([item['id'] for item in result['items']],['a'])
+        self.assertTrue(result['items'][0]['salary_mismatch'])
+        with connect() as c:
+            c.execute("UPDATE vacancies SET required_technologies_json='[\"Java\"]' WHERE id='a'")
+        self.assertEqual(self.client.post('/api/candidate/vacancies/search',json={'specialization':'Backend'}).json()['items'],[])
+
 
 if __name__ == '__main__':
     unittest.main()
