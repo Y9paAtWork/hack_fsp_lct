@@ -89,6 +89,33 @@ class MarketplaceTests(unittest.TestCase):
         self.assertEqual(self.employer.post(f'/api/interactions/{interaction_id}/messages',json={'body':'Приглашаем вас'}).status_code,201)
         self.assertEqual(self.other.get('/api/interactions').json()['items'],[])
 
+    def test_demo_resume_offer_is_saved_without_delivery_or_chat(self):
+        with connect() as c:
+            c.execute("INSERT INTO users(id,role,name,origin,created_at) VALUES('demo','candidate','Имя из импорта','dataset','now')")
+            c.execute("INSERT INTO resumes(id,user_id,specialization,position_name,raw_json,created_at,updated_at) VALUES('demo-resume','demo','Backend','Разработчик','{}','now','now')")
+            c.execute('''INSERT INTO candidate_match_access
+              (match_id,employer_id,vacancy_id,candidate_id,resume_id,created_at,last_seen_at)
+              VALUES(?,?,?,?,?,'now','now')''',('demo-match-token-123456',self.company_id,
+                                             self.vacancy_id,'demo','demo-resume'))
+        offer=self.employer.post(f'/api/vacancies/{self.vacancy_id}/invite',
+            json=self.invitation(match_id='demo-match-token-123456'))
+        self.assertEqual(offer.status_code,201,offer.text)
+        self.assertEqual(offer.json()['delivery_status'],'demo_only')
+        invitation_id=offer.json()['id']
+        listing=self.employer.get('/api/interactions').json()['items']
+        saved=next(item for item in listing if item['id']==invitation_id)
+        self.assertEqual(saved['delivery_status'],'demo_only')
+        self.assertEqual(saved['candidate_name'],'Кандидат')
+        self.assertIsNone(saved['candidate_id'])
+        detail=self.employer.get(f'/api/interactions/{invitation_id}').json()
+        self.assertEqual(detail['delivery_status'],'demo_only')
+        self.assertFalse(detail['chat_enabled'])
+        self.assertIsNone(detail['resume_id'])
+        self.assertEqual(self.employer.post(f'/api/interactions/{invitation_id}/messages',
+            json={'body':'Здравствуйте'}).status_code,409)
+        self.assertEqual(self.employer.post(f'/api/vacancies/{self.vacancy_id}/invite',
+            json=self.invitation(match_id='demo-match-token-123456')).status_code,409)
+
     def test_direct_invitation_is_disabled(self):
         response=self.employer.post('/api/invitations',json=self.invitation(title='Работа над API'))
         self.assertEqual(response.status_code,403,response.text)

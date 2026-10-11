@@ -101,6 +101,8 @@ describe('Assessment screens',()=>{
   fireEvent.change(screen.getByLabelText('Вакансия для подбора'),{target:{value:'v1'}});
   fireEvent.click(screen.getByText('Найти кандидатов'));
   await screen.findByText('#1 · Кандидат');
+  expect(screen.getByRole('button',{name:'Сделать предложение'})).toBeTruthy();
+  expect(screen.getByText(/Демонстрационное резюме: предложение сохранится без доставки/)).toBeTruthy();
   fireEvent.click(screen.getByLabelText('Только подтверждённые'));
   await waitFor(()=>expect(calls.some(x=>x.includes('verified_only=true'))).toBe(true));
  });

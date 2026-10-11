@@ -74,7 +74,8 @@ def get_interaction(c,interaction_id,user):
     if not row:
         row=c.execute('''SELECT i.*,i.title vacancy_name,v.specialization,i.description,
           'private' visibility,NULL vacancy_status,'invitation' kind,'invitation' source,
-          u.name candidate_name,r.id resume_id,r.position_name,r.all_technologies_json
+          u.name candidate_name,r.id resume_id,r.position_name,r.all_technologies_json,
+          CASE WHEN u.origin='dataset' THEN 'demo_only' ELSE 'deliverable' END delivery_status
           FROM hiring_invitations i JOIN users u ON u.id=i.candidate_id
           LEFT JOIN resumes r ON r.user_id=i.candidate_id
           LEFT JOIN vacancies v ON v.id=i.vacancy_id WHERE i.id=?''',(interaction_id,)).fetchone()
@@ -109,6 +110,7 @@ def list_interactions(c,user,vacancy_id=None):
       i.status,i.created_at,i.updated_at,i.title vacancy_name,v.specialization,
       NULL vacancy_status,i.salary_min,i.salary_max,i.currency,i.contact_method,'invitation' source,
       u.name candidate_name,i.company_name,
+      CASE WHEN u.origin='dataset' THEN 'demo_only' ELSE 'deliverable' END delivery_status,
       (SELECT body FROM hiring_invitation_messages m WHERE m.invitation_id=i.id
        ORDER BY m.created_at DESC,m.id DESC LIMIT 1) last_message
       FROM hiring_invitations i JOIN users u ON u.id=i.candidate_id
@@ -125,8 +127,8 @@ def list_interactions(c,user,vacancy_id=None):
 
 def create_invitation(c,candidate_id,employer_id,company_name,description,salary_min,salary_max,
                       contact_method,title='',vacancy_id=None):
-    target=c.execute("SELECT 1 FROM users WHERE id=? AND role='candidate' AND origin='registration'",(candidate_id,)).fetchone()
-    if not target:raise HTTPException(422,'Приглашение можно отправить только зарегистрированному кандидату')
+    target=c.execute("SELECT 1 FROM users WHERE id=? AND role='candidate'",(candidate_id,)).fetchone()
+    if not target:raise HTTPException(422,'Кандидат не найден')
     employer=c.execute('SELECT company_name FROM employer_profiles WHERE user_id=?',(employer_id,)).fetchone()
     if not employer or company_name.strip().casefold()!=employer['company_name'].strip().casefold():
         raise HTTPException(422,'Название компании должно совпадать с профилем работодателя')

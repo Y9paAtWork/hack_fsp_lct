@@ -395,8 +395,10 @@ def invite_candidate(vacancy_id:str,payload:InvitationPayload,request:Request,us
         interaction_id=create_invitation(c,target['candidate_id'],user['id'],payload.company_name,
             payload.description,payload.salary_min,payload.salary_max,payload.contact_method,
             payload.title,vacancy_id)
+        origin=c.execute('SELECT origin FROM users WHERE id=?',(target['candidate_id'],)).fetchone()['origin']
         audit(c,user['id'],'invite',vacancy_id,payload.match_id,1,request)
-    return {'id':interaction_id,'status':'pending'}
+    return {'id':interaction_id,'status':'pending',
+            'delivery_status':'demo_only' if origin=='dataset' else 'deliverable'}
 
 @app.post('/api/invitations',status_code=201)
 def direct_invitation(payload:InvitationPayload,user=Depends(employer)):
